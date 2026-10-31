@@ -143,17 +143,40 @@ export default function ShoppingPage() {
   const activeProduct = selectedProduct ? resolvedProduct : null;
   const leadOffer = activeProduct?.offers?.[0];
 
-  const handlePayPalCheckout = (usePayIn4: boolean) => {
-    setCheckoutStatus("Processing order through PayPal Sandbox...");
-    setTimeout(() => {
+  const handlePayPalCheckout = async (usePayIn4: boolean) => {
+    try {
+      setCheckoutStatus("Contacting PayPal Orders v2 API...");
+      const price = leadOffer?.price.price || 100;
+      const res = await fetch("/api/paypal/orders", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          amount: price,
+          currency: leadOffer?.price.currency || "USD",
+          itemName: activeProduct?.title || "Product Purchase",
+          payIn4: usePayIn4,
+        }),
+      });
+
+      if (!res.ok) {
+        throw new Error(`Order creation failed (HTTP ${res.status})`);
+      }
+
+      const data = await res.json();
       setCheckoutStatus(
         usePayIn4
-          ? `Order Authorized with PayPal Pay in 4! 4 installments of \$${(
-              (leadOffer?.price.price || 100) / 4
-            ).toFixed(2)} scheduled every 2 weeks.`
-          : `Order Authorized with PayPal! Paid in full: \$${leadOffer?.price.price.toFixed(2)} USD.`
+          ? `Order #${data.orderId} Authorized! PayPal Pay in 4 activated (4 installments of $${data.installmentAmount?.toFixed(2) || (price / 4).toFixed(2)}).`
+          : `Order #${data.orderId} Authorized! Paid in full: $${price.toFixed(2)} USD.`
       );
-    }, 1200);
+
+      if (data.approveUrl) {
+        setTimeout(() => {
+          window.open(data.approveUrl, "_blank", "noopener,noreferrer");
+        }, 800);
+      }
+    } catch (err: any) {
+      setCheckoutStatus(`PayPal Checkout Error: ${err.message || "Failed to initialize order"}`);
+    }
   };
 
   return (
