@@ -1,0 +1,9 @@
+log.txt
+.env
+__pycache__/
+*.pyc
+.venv/
+venv/
+.pytest_cache/
+scratch/
+.agents/
