@@ -261,6 +261,12 @@ class PayPalClient:
                     "amount": {
                         "currency_code": currency,
                         "value": amount_str,
+                        "breakdown": {
+                            "item_total": {
+                                "currency_code": currency,
+                                "value": amount_str,
+                            }
+                        },
                     },
                     "items": [
                         {
