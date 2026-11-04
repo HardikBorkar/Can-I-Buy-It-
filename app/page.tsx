@@ -1,5 +1,7 @@
 "use client";
 
+import Link from "next/link";
+
 import * as React from "react";
 import type {
   Brand,
@@ -203,8 +205,15 @@ export default function ShoppingPage() {
             </div>
           </div>
 
-          {/* Monetization & Platform Trust Badges */}
+          {/* Monetization, AG Grid Dashboard & Trust Badges */}
           <div className="flex items-center gap-3 text-xs">
+            <Link
+              href="/dashboard"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold transition shadow-md shadow-blue-500/25 border border-blue-400/30"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 text-blue-200" />
+              <span>AG Grid Financial Dashboard</span>
+            </Link>
             <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
               <Percent className="w-3.5 h-3.5 text-emerald-400" />
               <span>Affiliate Monetization Active (Up to 8% Commission)</span>
