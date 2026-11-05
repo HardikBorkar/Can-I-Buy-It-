@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-
 import * as React from "react";
 import type {
   Brand,
@@ -23,6 +22,14 @@ import {
   CreditCard,
   CheckCircle2,
   AlertTriangle,
+  Wallet,
+  Zap,
+  Flame,
+  Headphones,
+  Footprints,
+  Laptop,
+  Camera,
+  Watch,
 } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
@@ -31,7 +38,17 @@ import { ProductSearch } from "@/components/product-search";
 import { ProductDetails } from "@/components/product-details";
 import { useVariantSelection, type VariantResolveInput } from "@/hooks/use-variant-selection";
 import type { SearchFetcher, SearchFetchInput } from "@/hooks/use-product-search";
-import type { SimilarFetcher } from "@/hooks/use-product-recommendations";
+import type { SimilarFetcher, SimilarFetchInput } from "@/hooks/use-product-recommendations";
+import { AsciiArt } from "@/components/ui/ascii-art";
+
+const CATEGORY_CHIPS = [
+  { label: "Trending Picks", icon: Flame, query: "popular trending" },
+  { label: "Sneakers & Kicks", icon: Footprints, query: "sneakers" },
+  { label: "Audio & Headphones", icon: Headphones, query: "headphones" },
+  { label: "Cameras & Gear", icon: Camera, query: "camera" },
+  { label: "Laptops & Tech", icon: Laptop, query: "macbook laptop" },
+  { label: "Smartwatches", icon: Watch, query: "smartwatch" },
+];
 
 export default function ShoppingPage() {
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
@@ -39,6 +56,7 @@ export default function ShoppingPage() {
   const [paypalEvaluation, setPaypalEvaluation] = React.useState<any>(null);
   const [isEvaluating, setIsEvaluating] = React.useState(false);
   const [checkoutStatus, setCheckoutStatus] = React.useState<string | null>(null);
+  const [activeCategoryQuery, setActiveCategoryQuery] = React.useState("popular trending");
 
   // 1. Search fetcher connecting to server-side Channel3 API route
   const fetchSearch: SearchFetcher = React.useCallback(async (input: SearchFetchInput) => {
@@ -71,7 +89,7 @@ export default function ShoppingPage() {
   }, []);
 
   // 3. Similar products recommendations fetcher for PDP
-  const fetchSimilar: SimilarFetcher = React.useCallback(async (input) => {
+  const fetchSimilar: SimilarFetcher = React.useCallback(async (input: SimilarFetchInput) => {
     const res = await fetch("/api/channel3/similar", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -182,45 +200,47 @@ export default function ShoppingPage() {
   };
 
   return (
-    <div className="min-h-screen flex flex-col bg-slate-950 text-slate-100">
-      {/* Top Banner & Header */}
-      <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
+    <div className="min-h-screen flex flex-col bg-[#060c18] text-slate-100">
+      {/* Top Banner & Header - Solid PayPal Enterprise Styling */}
+      <header className="border-b border-[#172b4d] bg-[#081222] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-blue-600 via-indigo-600 to-teal-400 flex items-center justify-center font-bold text-lg shadow-lg shadow-blue-500/20">
+            <div className="w-10 h-10 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center font-black text-xl text-white shadow-md">
               P
             </div>
             <div>
               <div className="flex items-center gap-2">
                 <span className="font-bold text-lg tracking-tight text-white">
-                  PayPal Guardian <span className="text-blue-400">&amp; Commerce</span>
+                  PayPal Guardian <span className="text-[#38bdf8]">&amp; Commerce</span>
                 </span>
-                <Badge variant="outline" className="text-xs border-blue-500/40 text-blue-400 bg-blue-500/10">
+                <Badge variant="outline" className="text-xs border-[#0070BA]/60 text-[#38bdf8] bg-[#002952]">
                   Channel3 AI
                 </Badge>
               </div>
-              <p className="text-xs text-slate-400">
-                Universal product catalog with 25,000+ merchants &amp; autonomous financial safety guardrails
+              <p className="text-xs text-[#8ea9cb]">
+                Universal catalog (25,000+ stores) with autonomous 90-day cash flow protection
               </p>
             </div>
           </div>
 
           {/* Monetization, AG Grid Dashboard & Trust Badges */}
-          <div className="flex items-center gap-3 text-xs">
+          <div className="flex items-center gap-2.5 text-xs">
             <Link
               href="/dashboard"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-500 hover:to-indigo-500 text-white font-semibold transition shadow-md shadow-blue-500/25 border border-blue-400/30"
+              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0070BA] hover:bg-[#005ea6] text-white font-semibold transition shadow-md"
             >
               <ShieldCheck className="w-3.5 h-3.5 text-blue-200" />
               <span>AG Grid Financial Dashboard</span>
             </Link>
-            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-              <Percent className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Affiliate Monetization Active (Up to 8% Commission)</span>
+
+            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#064e3b] border border-[#059669]/60 text-[#34d399]">
+              <Percent className="w-3.5 h-3.5 text-[#34d399]" />
+              <span>Affiliate Monetization Active</span>
             </div>
-            <div className="hidden sm:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-blue-500/10 border border-blue-500/30 text-blue-300">
-              <Store className="w-3.5 h-3.5 text-blue-400" />
-              <span>25,000+ Retailers Indexed</span>
+
+            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0c182e] border border-[#172b4d] text-[#8ea9cb]">
+              <Store className="w-3.5 h-3.5 text-[#38bdf8]" />
+              <span>25,000+ Retailers</span>
             </div>
           </div>
         </div>
@@ -232,58 +252,58 @@ export default function ShoppingPage() {
           /* ==================== PRODUCT DETAIL PAGE (PDP) ==================== */
           <div className="space-y-6 animate-in fade-in duration-200">
             {/* Back Button & Breadcrumbs */}
-            <div className="flex items-center justify-between border-b border-slate-800 pb-4">
+            <div className="flex items-center justify-between border-b border-[#172b4d] pb-4">
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => setSelectedProduct(null)}
-                className="gap-2 border-slate-700 hover:bg-slate-800 text-slate-300"
+                className="gap-2 border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-[#cbd5e1]"
               >
                 <ArrowLeft className="w-4 h-4" />
                 Back to Search Grid
               </Button>
 
-              <div className="text-xs text-slate-400 flex items-center gap-2">
+              <div className="text-xs text-[#8ea9cb] flex items-center gap-2">
                 <span>Shop</span>
                 <span>/</span>
-                <span className="text-slate-300">{activeProduct.category?.title || "Products"}</span>
+                <span className="text-[#cbd5e1]">{activeProduct.category?.title || "Products"}</span>
                 <span>/</span>
-                <span className="text-blue-400 truncate max-w-[200px] font-medium">{activeProduct.title}</span>
+                <span className="text-[#38bdf8] truncate max-w-[200px] font-medium">{activeProduct.title}</span>
               </div>
             </div>
 
             {/* PayPal Guardian Cash Flow Shield Banner */}
             {paypalEvaluation && (
-              <div className="p-4 rounded-xl border border-blue-900/60 bg-gradient-to-r from-blue-950/40 to-slate-900/80 shadow-md">
+              <div className="p-4 rounded-xl border border-[#0070BA] bg-[#0b1629] shadow-md">
                 <div className="flex flex-col md:flex-row items-start md:items-center justify-between gap-4">
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
-                      <ShieldCheck className="w-5 h-5 text-teal-400" />
+                      <ShieldCheck className="w-5 h-5 text-[#38bdf8]" />
                       <span className="font-semibold text-sm text-white">
                         PayPal Guardian: 90-Day Cash-Flow Assessment
                       </span>
                       {paypalEvaluation.safe_in_full ? (
-                        <Badge className="bg-emerald-500/20 text-emerald-300 border-emerald-500/40">
+                        <Badge className="bg-[#064e3b] text-[#34d399] border-[#059669]">
                           Safe to Buy in Full
                         </Badge>
                       ) : (
-                        <Badge className="bg-amber-500/20 text-amber-300 border-amber-500/40">
+                        <Badge className="bg-[#78350f] text-[#fcd34d] border-[#d97706]">
                           Recommend PayPal Pay in 4
                         </Badge>
                       )}
                     </div>
-                    <p className="text-xs text-slate-300 max-w-3xl leading-relaxed">
+                    <p className="text-xs text-[#cbd5e1] max-w-3xl leading-relaxed">
                       {paypalEvaluation.explanation}
                     </p>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0">
+                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
                     {paypalEvaluation.pay_in_4.available && (
                       <Button
                         size="sm"
                         onClick={() => handlePayPalCheckout(true)}
-                        className="bg-blue-600 hover:bg-blue-500 text-white font-medium shadow-sm"
+                        className="bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold shadow-sm"
                       >
                         <CreditCard className="w-4 h-4 mr-1.5" />
                         PayPal Pay in 4 (${paypalEvaluation.pay_in_4.first_payment_today.toFixed(2)} today)
@@ -293,23 +313,23 @@ export default function ShoppingPage() {
                       size="sm"
                       variant="outline"
                       onClick={() => handlePayPalCheckout(false)}
-                      className="border-slate-700 hover:bg-slate-800 text-slate-200"
+                      className="border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-slate-200"
                     >
                       Pay in Full (${paypalEvaluation.amount.toFixed(2)})
                     </Button>
                     <Link
                       href={`/dashboard?item=${encodeURIComponent(activeProduct.title)}&amount=${leadOffer?.price.price || paypalEvaluation.amount || 100}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 text-xs font-semibold text-indigo-300 transition shrink-0"
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#0070BA] bg-[#002952] hover:bg-[#003870] text-xs font-semibold text-[#93c5fd] transition shrink-0"
                     >
-                      <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+                      <TrendingUp className="w-3.5 h-3.5 text-[#38bdf8]" />
                       <span>Deep AG Grid Simulation &rarr;</span>
                     </Link>
                   </div>
                 </div>
 
                 {checkoutStatus && (
-                  <div className="mt-3 p-2.5 rounded-lg bg-emerald-950/60 border border-emerald-500/40 text-emerald-300 text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-emerald-400" />
+                  <div className="mt-3 p-2.5 rounded-lg bg-[#002952] border border-[#0070BA] text-[#93c5fd] text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 shrink-0 text-[#38bdf8]" />
                     <span>{checkoutStatus}</span>
                   </div>
                 )}
@@ -317,7 +337,7 @@ export default function ShoppingPage() {
             )}
 
             {/* Official Channel3 ProductDetails UI Component */}
-            <div className="bg-slate-900/40 border border-slate-800/80 rounded-2xl p-6 shadow-xl">
+            <div className="bg-[#0b1629] border border-[#172b4d] rounded-2xl p-6 shadow-xl">
               <ProductDetails
                 product={activeProduct}
                 selection={selection}
@@ -329,7 +349,7 @@ export default function ShoppingPage() {
                 recommendations={{
                   title: (
                     <div className="flex items-center gap-2 text-lg font-bold text-white mb-4">
-                      <Sparkles className="w-5 h-5 text-blue-400" />
+                      <Sparkles className="w-5 h-5 text-[#38bdf8]" />
                       <span>More Like This (Across 25,000+ Retailers)</span>
                     </div>
                   ),
@@ -344,23 +364,89 @@ export default function ShoppingPage() {
         ) : (
           /* ==================== PRODUCT SEARCH & GRID VIEW ==================== */
           <div className="space-y-6">
-            {/* Hero / Value Proposition */}
-            <div className="text-center py-6 px-4 max-w-3xl mx-auto space-y-2">
-              <h1 className="text-3xl font-extrabold tracking-tight text-white sm:text-4xl">
-                Shop 100M+ Products with{" "}
-                <span className="text-transparent bg-clip-text bg-gradient-to-r from-blue-400 via-indigo-300 to-teal-300">
-                  Financial Guardian Guardrails
-                </span>
-              </h1>
-              <p className="text-sm text-slate-400">
-                Discover live prices across top stores like Nike, B&amp;H, Best Buy, and Target. Compare variant options,
-                explore price history trends, and buy with verified cash-flow protection.
-              </p>
+            {/* HERO SECTION WITH LIVE ASCII ART WATERMARK & PROMINENT GUARDIAN SHOWCASE */}
+            <div className="relative overflow-hidden bg-[#0b1629] border border-[#1a335a] rounded-3xl p-6 sm:p-8 shadow-2xl">
+              {/* Subtle ASCII Art Watermark in Hero Background */}
+              <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none select-none max-w-[320px] hidden lg:block overflow-hidden">
+                <AsciiArt
+                  src="/paypal-logo.svg"
+                  resolution={75}
+                  color="#0079C1"
+                  animationStyle="fade"
+                  animationDuration={1.2}
+                  animateOnView={false}
+                  className="w-full aspect-square"
+                />
+              </div>
+
+              <div className="relative z-10 max-w-2xl space-y-4">
+                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#002952] border border-[#00457C] text-xs font-semibold text-[#38bdf8]">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                  <span>PayPal Guardian Autonomous Commerce</span>
+                </div>
+
+                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
+                  Shop 100M+ Products with{" "}
+                  <span className="text-[#38bdf8]">
+                    Autonomous Financial Guardrails
+                  </span>
+                </h1>
+
+                <p className="text-sm text-[#8ea9cb] leading-relaxed">
+                  Search across 25,000+ top retailers including Nike, B&amp;H, Best Buy, and Target. Before spending a single dollar, our 90-day simulation engine protects your $500 safety buffer against upcoming rent and bills, unlocking **PayPal Pay in 4** when paying upfront is unsafe.
+                </p>
+
+                {/* Primary Hero Actions */}
+                <div className="flex flex-wrap items-center gap-3 pt-2">
+                  <Link
+                    href="/dashboard"
+                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold text-xs shadow-lg transition"
+                  >
+                    <ShieldCheck className="w-4 h-4" />
+                    <span>Launch AG Grid Financial Dashboard &rarr;</span>
+                  </Link>
+
+                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#070e1b] border border-[#162846] text-xs text-[#cbd5e1]">
+                    <Wallet className="w-3.5 h-3.5 text-[#34d399]" />
+                    <span>Sandbox Balance: <strong className="text-white font-mono">$1,850.00</strong></span>
+                  </div>
+                </div>
+              </div>
             </div>
 
-            {/* Official Channel3 ProductSearch UI Component (Faceted Filters at the Top) */}
-            <div className="bg-slate-900/50 border border-slate-800/80 rounded-2xl p-4 sm:p-6 shadow-xl">
+            {/* CURATED CATEGORY CHIPS TOOLBAR */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between text-xs text-[#8ea9cb] px-1">
+                <span className="font-semibold uppercase tracking-wider text-[11px]">Popular Categories</span>
+                <span>Click to filter instantly across 25,000+ merchants</span>
+              </div>
+
+              <div className="flex items-center gap-2 overflow-x-auto pb-1 scrollbar-none">
+                {CATEGORY_CHIPS.map((cat) => {
+                  const Icon = cat.icon;
+                  const isActive = activeCategoryQuery === cat.query;
+                  return (
+                    <button
+                      key={cat.query}
+                      onClick={() => setActiveCategoryQuery(cat.query)}
+                      className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition ${
+                        isActive
+                          ? "bg-[#0070BA] text-white shadow-md"
+                          : "bg-[#0b1629] hover:bg-[#10203a] text-[#8ea9cb] hover:text-white border border-[#172b4d]"
+                      }`}
+                    >
+                      <Icon className="w-3.5 h-3.5" />
+                      <span>{cat.label}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+
+            {/* Official Channel3 ProductSearch UI Component (Preloaded with Active Category) */}
+            <div className="bg-[#0b1629] border border-[#172b4d] rounded-2xl p-4 sm:p-6 shadow-xl">
               <ProductSearch
+                key={activeCategoryQuery}
                 fetchSearch={fetchSearch}
                 searchBrands={searchBrands}
                 searchWebsites={searchWebsites}
@@ -368,7 +454,8 @@ export default function ShoppingPage() {
                 filtersLayout="bar"
                 imageSearch={true}
                 searchOnMount={true}
-                placeholder="Search across 25,000+ stores, or upload an image to find similar products..."
+                initialQuery={activeCategoryQuery}
+                placeholder={`Search for products in ${activeCategoryQuery}, or upload an image to find similar items...`}
                 onSelect={(product) => {
                   setSelectedProduct(product);
                   window.scrollTo({ top: 0, behavior: "smooth" });
@@ -380,10 +467,10 @@ export default function ShoppingPage() {
       </main>
 
       {/* Footer */}
-      <footer className="border-t border-slate-900 bg-slate-950 py-6 text-xs text-slate-500 text-center">
+      <footer className="border-t border-[#172b4d] bg-[#081222] py-6 text-xs text-[#64748b] text-center">
         <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 PayPal Guardian Commerce — Built with Channel3 SDK, Next.js, and PayPal Sandbox APIs.</p>
-          <div className="flex items-center gap-4 text-slate-400">
+          <div className="flex items-center gap-4 text-[#8ea9cb]">
             <span>Channel3 SDK 4.6</span>
             <span>•</span>
             <span>PayPal AI Toolkit</span>

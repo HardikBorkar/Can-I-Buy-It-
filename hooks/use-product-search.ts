@@ -75,7 +75,8 @@ interface SearchCriteria {
   image: ImageQuery | null;
 }
 
-function hasCriteria(query: string, image: ImageQuery | null): boolean {
+function hasCriteria(query: string, image: ImageQuery | null, searchOnMount = false): boolean {
+  if (searchOnMount) return true;
   return query.trim().length > 0 || image != null;
 }
 
@@ -109,7 +110,7 @@ export function useProductSearch({
     return () => clearTimeout(timer);
   }, [query, filters, image, submitNonce, autoSearch, debounceMs]);
 
-  const enabled = active != null && hasCriteria(active.query, active.image);
+  const enabled = active != null && hasCriteria(active.query, active.image, searchOnMount);
 
   const infinite = useInfiniteQuery({
     queryKey: [
