@@ -39,7 +39,6 @@ import { ProductDetails } from "@/components/product-details";
 import { useVariantSelection, type VariantResolveInput } from "@/hooks/use-variant-selection";
 import type { SearchFetcher, SearchFetchInput } from "@/hooks/use-product-search";
 import type { SimilarFetcher, SimilarFetchInput } from "@/hooks/use-product-recommendations";
-import { AsciiArt } from "@/components/ui/ascii-art";
 
 const CATEGORY_CHIPS = [
   { label: "Trending Picks", icon: Flame, query: "popular trending" },
@@ -205,8 +204,9 @@ export default function ShoppingPage() {
       <header className="border-b border-[#172b4d] bg-[#081222] sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
-            <div className="w-10 h-10 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center font-black text-xl text-white shadow-md">
-              P
+            <div className="w-10 h-10 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center shadow-md overflow-hidden p-1">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img src="/paypal-logo.png" alt="PayPal" className="w-full h-full object-contain" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -364,19 +364,12 @@ export default function ShoppingPage() {
         ) : (
           /* ==================== PRODUCT SEARCH & GRID VIEW ==================== */
           <div className="space-y-6">
-            {/* HERO SECTION WITH LIVE ASCII ART WATERMARK & PROMINENT GUARDIAN SHOWCASE */}
+            {/* HERO SECTION WITH PAYPAL LOGO WATERMARK & GUARDIAN SHOWCASE */}
             <div className="relative overflow-hidden bg-[#0b1629] border border-[#1a335a] rounded-3xl p-6 sm:p-8 shadow-2xl">
-              {/* Subtle ASCII Art Watermark in Hero Background */}
-              <div className="absolute right-6 top-1/2 -translate-y-1/2 opacity-20 pointer-events-none select-none max-w-[320px] hidden lg:block overflow-hidden">
-                <AsciiArt
-                  src="/paypal-logo.svg"
-                  resolution={75}
-                  color="#0079C1"
-                  animationStyle="fade"
-                  animationDuration={1.2}
-                  animateOnView={false}
-                  className="w-full aspect-square"
-                />
+              {/* Official PayPal Logo Watermark */}
+              <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none select-none hidden lg:block">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/paypal-logo.png" alt="" aria-hidden="true" className="w-64 h-auto object-contain" />
               </div>
 
               <div className="relative z-10 max-w-2xl space-y-4">
