@@ -93,7 +93,7 @@ export async function GET() {
       amount: -89.50,
       paymentMethod: "PAY_IN_4",
       status: "COMPLETED",
-      payer: "sb-6ckev53553701@business.example.com",
+      payer: "Verified Merchant Account",
     },
     {
       id: "0U603912J86200723",
@@ -103,7 +103,7 @@ export async function GET() {
       amount: -199.99,
       paymentMethod: "PAY_IN_FULL",
       status: "COMPLETED",
-      payer: "sb-6ckev53553701@business.example.com",
+      payer: "Verified Merchant Account",
     },
     {
       id: "INV2-9844-8821-4190",
@@ -123,7 +123,7 @@ export async function GET() {
       amount: -19.00,
       paymentMethod: "PAYPAL_CREDIT",
       status: "COMPLETED",
-      payer: "sb-6ckev53553701@business.example.com",
+      payer: "Verified Merchant Account",
     },
     {
       id: "ORD-77412-M22",
@@ -133,7 +133,7 @@ export async function GET() {
       amount: -114.30,
       paymentMethod: "PAY_IN_FULL",
       status: "COMPLETED",
-      payer: "sb-6ckev53553701@business.example.com",
+      payer: "Verified Merchant Account",
     },
     {
       id: "INV2-1102-3391-7781",
@@ -191,7 +191,7 @@ export async function GET() {
 
   return NextResponse.json({
     account: {
-      email: process.env.PAYPAL_SANDBOX_EMAIL || "sb-6ckev53553701@business.example.com",
+      email: "Verified Sandbox Merchant",
       balance: startingBalance,
       currency: "USD",
       safetyBuffer: safetyFloor,

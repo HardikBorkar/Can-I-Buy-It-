@@ -294,9 +294,9 @@ function DashboardContent() {
           </div>
 
           <div className="flex items-center gap-3 text-xs">
-            <div className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
-              <ShieldCheck className="w-3.5 h-3.5 text-emerald-400" />
-              <span>Sandbox: {data.account.email}</span>
+            <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-300">
+              <span className="w-2 h-2 rounded-full bg-emerald-400 animate-pulse" />
+              <span className="font-semibold text-emerald-300">PayPal Sandbox Connected</span>
             </div>
 
             <button
