@@ -187,3 +187,4 @@ export function ProjectionChart({ data, candidateAmount, showComparison }: Props
     </div>
   );
 }
+

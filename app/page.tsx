@@ -297,6 +297,13 @@ export default function ShoppingPage() {
                     >
                       Pay in Full (${paypalEvaluation.amount.toFixed(2)})
                     </Button>
+                    <Link
+                      href={`/dashboard?item=${encodeURIComponent(activeProduct.title)}&amount=${leadOffer?.price.price || paypalEvaluation.amount || 100}`}
+                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-indigo-500/40 bg-indigo-950/40 hover:bg-indigo-900/60 text-xs font-semibold text-indigo-300 transition shrink-0"
+                    >
+                      <TrendingUp className="w-3.5 h-3.5 text-indigo-400" />
+                      <span>Deep AG Grid Simulation &rarr;</span>
+                    </Link>
                   </div>
                 </div>
 

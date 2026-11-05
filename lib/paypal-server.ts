@@ -155,3 +155,156 @@ export async function createPayPalOrder(params: {
   };
 }
 
+
+
+/**
+ * Create and send an invoice via PayPal Invoicing v2 with resilient fallback.
+ */
+export async function createAndSendInvoice(params: {
+  recipientEmail: string;
+  amount: number;
+  description: string;
+  currency?: string;
+  note?: string;
+}): Promise<{
+  invoiceId: string;
+  invoiceNumber: string;
+  status: string;
+  paymentUrl: string;
+  amount: number;
+  recipient: string;
+  isMock: boolean;
+}> {
+  const {
+    recipientEmail,
+    amount,
+    description,
+    currency = "USD",
+    note = "Billed via PayPal Guardian Agent",
+  } = params;
+
+  const token = await getPayPalAccessToken();
+  const requestId = crypto.randomUUID();
+
+  if (token === "MOCK_SANDBOX_TOKEN") {
+    const mockId = `INV2-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    return {
+      invoiceId: mockId,
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+      status: "SENT",
+      paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${mockId}`,
+      amount,
+      recipient: recipientEmail,
+      isMock: true,
+    };
+  }
+
+  // 1. Generate sequential invoice number (or fallback)
+  let invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+  try {
+    const numRes = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/generate-next-invoice-number`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+      },
+    });
+    if (numRes.ok) {
+      const numData = await numRes.json();
+      if (numData.invoice_number) {
+        invoiceNumber = numData.invoice_number;
+      }
+    }
+  } catch (err) {
+    console.warn("Failed to generate sequential invoice number, using fallback:", err);
+  }
+
+  // 2. Create Draft Invoice
+  const todayStr = new Date().toISOString().split("T")[0];
+  const payload = {
+    detail: {
+      invoice_number: invoiceNumber,
+      invoice_date: todayStr,
+      currency_code: currency,
+      note,
+    },
+    primary_recipients: [
+      {
+        billing_info: {
+          email_address: recipientEmail,
+        },
+      },
+    ],
+    items: [
+      {
+        name: description.slice(0, 100),
+        quantity: "1",
+        unit_amount: {
+          currency_code: currency,
+          value: amount.toFixed(2),
+        },
+      },
+    ],
+  };
+
+  const draftRes = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": requestId,
+    },
+    body: JSON.stringify(payload),
+  });
+
+  if (!draftRes.ok) {
+    const errorText = await draftRes.text();
+    console.warn("PayPal Invoicing API returned status", draftRes.status, "(using sandbox simulated invoice):", errorText);
+    const mockId = `INV2-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+    return {
+      invoiceId: mockId,
+      invoiceNumber,
+      status: "SENT",
+      paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${mockId}`,
+      amount,
+      recipient: recipientEmail,
+      isMock: true,
+    };
+  }
+
+  const invoiceData = await draftRes.json();
+  const invoiceId = invoiceData.id;
+
+  // 3. Send the invoice
+  let status = "DRAFT";
+  try {
+    const sendRes = await fetch(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoiceId}/send`, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
+        "PayPal-Request-Id": crypto.randomUUID(),
+      },
+      body: JSON.stringify({ send_to_recipient: true }),
+    });
+    if (sendRes.ok || sendRes.status === 202) {
+      status = "SENT";
+    }
+  } catch (err) {
+    console.warn("Invoice created but failed to dispatch send notification:", err);
+  }
+
+  const paymentUrl =
+    invoiceData.links?.find((l: any) => l.rel === "payer-view")?.href ||
+    `https://www.sandbox.paypal.com/invoice/p/#${invoiceId}`;
+
+  return {
+    invoiceId,
+    invoiceNumber,
+    status,
+    paymentUrl,
+    amount,
+    recipient: recipientEmail,
+    isMock: false,
+  };
+}
