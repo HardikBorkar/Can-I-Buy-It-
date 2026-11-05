@@ -16,12 +16,12 @@ import { Calendar, Repeat, ShieldCheck } from "lucide-react";
 ModuleRegistry.registerModules([AllCommunityModule]);
 
 const guardianTheme = themeQuartz.withPart(colorSchemeDark).withParams({
-  backgroundColor: "#090d16",
+  backgroundColor: "#070e1b",
   foregroundColor: "#f1f5f9",
-  headerBackgroundColor: "#0f172a",
-  headerTextColor: "#94a3b8",
-  borderColor: "#1e293b",
-  rowHoverColor: "#1e293b55",
+  headerBackgroundColor: "#0c182e",
+  headerTextColor: "#93c5fd",
+  borderColor: "#162846",
+  rowHoverColor: "#10213d",
   fontFamily: "inherit",
   fontSize: 13,
   wrapperBorderRadius: 12,
@@ -58,7 +58,7 @@ export function AgGridCommitments({ commitments }: Props) {
           if (!params.data) return null;
           return (
             <div className="flex items-center gap-2">
-              <div className="w-6 h-6 rounded-md bg-indigo-500/10 border border-indigo-500/20 flex items-center justify-center text-indigo-400 shrink-0">
+              <div className="w-6 h-6 rounded-md bg-[#00457C]/30 border border-[#0070BA]/40 flex items-center justify-center text-[#38bdf8] shrink-0">
                 <Repeat className="w-3.5 h-3.5" />
               </div>
               <span className="font-semibold text-white">{params.data.name}</span>
@@ -73,7 +73,7 @@ export function AgGridCommitments({ commitments }: Props) {
         sortable: true,
         filter: true,
         cellRenderer: (params: ICellRendererParams<CommitmentRow>) => (
-          <span className="text-xs px-2.5 py-0.5 rounded-full bg-slate-800 text-slate-300 border border-slate-700">
+          <span className="text-xs px-2.5 py-0.5 rounded-full bg-[#0c182e] text-[#8ea9cb] border border-[#162846]">
             {params.value}
           </span>
         ),
@@ -89,8 +89,8 @@ export function AgGridCommitments({ commitments }: Props) {
         headerName: "Next Scheduled",
         width: 150,
         cellRenderer: (params: ICellRendererParams<CommitmentRow>) => (
-          <div className="flex items-center gap-1.5 text-xs text-slate-300">
-            <Calendar className="w-3.5 h-3.5 text-slate-500" />
+          <div className="flex items-center gap-1.5 text-xs text-[#cbd5e1]">
+            <Calendar className="w-3.5 h-3.5 text-[#8ea9cb]" />
             <span>{params.value}</span>
           </div>
         ),
@@ -118,8 +118,8 @@ export function AgGridCommitments({ commitments }: Props) {
         width: 160,
         cellRenderer: (params: ICellRendererParams<CommitmentRow>) => {
           return (
-            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-emerald-950/60 text-emerald-400 border border-emerald-500/30">
-              <ShieldCheck className="w-3 h-3 text-emerald-400" />
+            <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded text-[11px] font-semibold bg-[#064e3b] text-[#34d399] border border-[#059669]/60">
+              <ShieldCheck className="w-3 h-3 text-[#34d399]" />
               Guardian Protected
             </span>
           );
@@ -130,7 +130,7 @@ export function AgGridCommitments({ commitments }: Props) {
   );
 
   return (
-    <div className="h-[320px] w-full rounded-2xl overflow-hidden border border-slate-800/80 shadow-2xl">
+    <div className="h-[320px] w-full rounded-2xl overflow-hidden border border-[#162846] shadow-xl">
       <AgGridReact<CommitmentRow>
         theme={guardianTheme}
         rowData={commitments}
@@ -140,4 +140,3 @@ export function AgGridCommitments({ commitments }: Props) {
     </div>
   );
 }
-
