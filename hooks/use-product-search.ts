@@ -92,9 +92,11 @@ export function useProductSearch({
   const [filters, setFiltersState] = React.useState<SearchFiltersState>(initialFilters);
   const [image, setImage] = React.useState<ImageQuery | null>(null);
   const [submitNonce, setSubmitNonce] = React.useState(0);
-  const [active, setActive] = React.useState<SearchCriteria | null>(null);
+  const [active, setActive] = React.useState<SearchCriteria | null>(
+    searchOnMount && initialQuery ? { query: initialQuery, filters: initialFilters, image: null } : null
+  );
 
-  const skipFirst = React.useRef(!searchOnMount);
+  const skipFirst = React.useRef(false);
 
   React.useEffect(() => {
     if (skipFirst.current && submitNonce === 0) {

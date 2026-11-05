@@ -41,12 +41,12 @@ import type { SearchFetcher, SearchFetchInput } from "@/hooks/use-product-search
 import type { SimilarFetcher, SimilarFetchInput } from "@/hooks/use-product-recommendations";
 
 const CATEGORY_CHIPS = [
-  { label: "Trending Picks", icon: Flame, query: "popular trending" },
+  { label: "Trending Picks", icon: Flame, query: "shoes" },
   { label: "Sneakers & Kicks", icon: Footprints, query: "sneakers" },
   { label: "Audio & Headphones", icon: Headphones, query: "headphones" },
   { label: "Cameras & Gear", icon: Camera, query: "camera" },
-  { label: "Laptops & Tech", icon: Laptop, query: "macbook laptop" },
-  { label: "Smartwatches", icon: Watch, query: "smartwatch" },
+  { label: "Laptops & Tech", icon: Laptop, query: "laptop" },
+  { label: "Smartwatches", icon: Watch, query: "watch" },
 ];
 
 export default function ShoppingPage() {
@@ -55,7 +55,7 @@ export default function ShoppingPage() {
   const [paypalEvaluation, setPaypalEvaluation] = React.useState<any>(null);
   const [isEvaluating, setIsEvaluating] = React.useState(false);
   const [checkoutStatus, setCheckoutStatus] = React.useState<string | null>(null);
-  const [activeCategoryQuery, setActiveCategoryQuery] = React.useState("popular trending");
+  const [activeCategoryQuery, setActiveCategoryQuery] = React.useState("shoes");
 
   // 1. Search fetcher connecting to server-side Channel3 API route
   const fetchSearch: SearchFetcher = React.useCallback(async (input: SearchFetchInput) => {
