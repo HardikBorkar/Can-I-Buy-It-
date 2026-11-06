@@ -157,6 +157,46 @@ export async function createPayPalOrder(params: {
 
 
 
+export async function capturePayPalOrder(orderId: string): Promise<{
+  id: string;
+  status: string;
+  payer?: any;
+  purchaseUnits?: any;
+}> {
+  const token = await getPayPalAccessToken();
+  const requestId = crypto.randomUUID();
+
+  if (token === "MOCK_SANDBOX_TOKEN" || orderId.startsWith("SANDBOX-ORD-")) {
+    return {
+      id: orderId,
+      status: "COMPLETED",
+    };
+  }
+
+  const res = await fetch(`${PAYPAL_BASE_URL}/v2/checkout/orders/${orderId}/capture`, {
+    method: "POST",
+    headers: {
+      Authorization: `Bearer ${token}`,
+      "Content-Type": "application/json",
+      "PayPal-Request-Id": requestId,
+    },
+  });
+
+  if (!res.ok) {
+    const errorText = await res.text();
+    console.error("PayPal Capture Order error:", res.status, errorText);
+    throw new Error(`Failed to capture PayPal order: ${res.status}`);
+  }
+
+  const data = await res.json();
+  return {
+    id: data.id,
+    status: data.status,
+    payer: data.payer,
+    purchaseUnits: data.purchase_units,
+  };
+}
+
 /**
  * Create and send an invoice via PayPal Invoicing v2 with resilient fallback.
  */
