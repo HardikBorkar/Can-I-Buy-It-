@@ -4,18 +4,11 @@ import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
 import {
   Sparkles,
-  MessageSquare,
   X,
   Send,
   ShieldCheck,
-  CreditCard,
-  TrendingUp,
-  AlertTriangle,
   CheckCircle2,
   Receipt,
-  DollarSign,
-  ChevronDown,
-  Minimize2,
   ExternalLink,
 } from "lucide-react";
 
@@ -46,11 +39,16 @@ interface Message {
 }
 
 export function CopilotChat() {
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [orderFeedback, setOrderFeedback] = useState<string | null>(null);
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -107,7 +105,7 @@ export function CopilotChat() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
@@ -152,18 +150,22 @@ export function CopilotChat() {
           window.open(order.approveUrl, "_blank", "noopener,noreferrer");
         }, 800);
       }
-    } catch (err: any) {
-      setOrderFeedback(`Order Error: ${err.message || "Failed to authorize"}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to authorize";
+      setOrderFeedback(`Order Error: ${message}`);
     } finally {
       setIsProcessingOrder(false);
     }
   };
+
+  if (!mounted) return null;
 
   return (
     <>
       {/* Floating Copilot Launcher Button */}
       {!isOpen && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white font-bold text-xs shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 group"
         >
@@ -201,6 +203,7 @@ export function CopilotChat() {
 
             <div className="flex items-center gap-1">
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
                 title="Close Copilot"
@@ -311,6 +314,7 @@ export function CopilotChat() {
 
                           {msg.actionCard.payIn4Safe && (
                             <button
+                              type="button"
                               disabled={isProcessingOrder}
                               onClick={() =>
                                 handleAuthorizeOrder(
@@ -389,24 +393,28 @@ export function CopilotChat() {
           {/* Quick Suggestion Chips */}
           <div className="px-3 py-2 bg-slate-900/60 border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[11px]">
             <button
+              type="button"
               onClick={() => handleSend("What is my PayPal balance and safe discretionary spend?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               💳 Balance
             </button>
             <button
+              type="button"
               onClick={() => handleSend("Can I afford to buy an $850 Sony Camera?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               📸 Afford $850?
             </button>
             <button
+              type="button"
               onClick={() => handleSend("What recurring bills are coming up this month?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               📅 Bills
             </button>
             <button
+              type="button"
               onClick={() => handleSend("Draft a PayPal invoice for $450 to my client")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >

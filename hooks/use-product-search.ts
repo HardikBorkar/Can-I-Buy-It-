@@ -118,7 +118,7 @@ export function useProductSearch({
     queryKey: [
       "channel3-product-search",
       active?.query ?? "",
-      active ? toSearchFilters(active.filters) : {},
+      active ? toSearchFilters(active.filters) : EMPTY_FILTERS,
       active?.image?.imageUrl ?? null,
       active?.image?.base64Image ?? null,
     ],

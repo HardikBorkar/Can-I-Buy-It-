@@ -5,10 +5,8 @@ import * as React from "react";
 import type {
   Brand,
   CategorySummary,
-  OptionValue,
   PriceHistoryResponse,
   Product,
-  SearchFilters,
   Website,
 } from "@channel3/sdk/resources";
 import {
@@ -17,13 +15,10 @@ import {
   ShieldCheck,
   Percent,
   Store,
-  DollarSign,
   TrendingUp,
   CreditCard,
   CheckCircle2,
-  AlertTriangle,
   Wallet,
-  Zap,
   Flame,
   Headphones,
   Footprints,
@@ -49,11 +44,12 @@ const CATEGORY_CHIPS = [
   { label: "Smartwatches", icon: Watch, query: "watch" },
 ];
 
+const EMPTY_PRODUCT = {} as Product;
+
 export default function ShoppingPage() {
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
   const [priceHistory, setPriceHistory] = React.useState<PriceHistoryResponse | undefined>(undefined);
-  const [paypalEvaluation, setPaypalEvaluation] = React.useState<any>(null);
-  const [isEvaluating, setIsEvaluating] = React.useState(false);
+  const [paypalEvaluation, setPaypalEvaluation] = React.useState<Record<string, unknown> | null>(null);
   const [checkoutStatus, setCheckoutStatus] = React.useState<string | null>(null);
   const [activeCategoryQuery, setActiveCategoryQuery] = React.useState("shoes");
 
@@ -120,28 +116,35 @@ export default function ShoppingPage() {
     select: onSelectVariant,
     isResolving,
   } = useVariantSelection({
-    product: selectedProduct || ({} as Product),
+    product: selectedProduct || EMPTY_PRODUCT,
     resolve: variantResolver,
   });
+
+  const handleCloseProduct = React.useCallback(() => {
+    setSelectedProduct(null);
+    setPriceHistory(undefined);
+    setPaypalEvaluation(null);
+    setCheckoutStatus(null);
+  }, []);
 
   // Fetch price history and run PayPal Guardian simulation when a product is opened
   React.useEffect(() => {
     if (!selectedProduct?.id) {
-      setPriceHistory(undefined);
-      setPaypalEvaluation(null);
-      setCheckoutStatus(null);
       return;
     }
+
+    let isCancelled = false;
 
     // Load price history
     fetch(`/api/channel3/price-history/${selectedProduct.id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((data) => setPriceHistory(data))
+      .then((data) => {
+        if (!isCancelled && data) setPriceHistory(data);
+      })
       .catch(() => {});
 
     // Run PayPal Guardian Cash Flow Evaluation
     const leadPrice = selectedProduct.offers?.[0]?.price.price || 150;
-    setIsEvaluating(true);
     fetch("/api/paypal/evaluate", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -153,11 +156,16 @@ export default function ShoppingPage() {
     })
       .then((r) => r.json())
       .then((evalData) => {
-        setPaypalEvaluation(evalData);
-        setIsEvaluating(false);
+        if (!isCancelled) {
+          setPaypalEvaluation(evalData);
+        }
       })
-      .catch(() => setIsEvaluating(false));
-  }, [selectedProduct?.id]);
+      .catch(() => {});
+
+    return () => {
+      isCancelled = true;
+    };
+  }, [selectedProduct?.id, selectedProduct?.title, selectedProduct?.offers]);
 
   const activeProduct = selectedProduct ? resolvedProduct : null;
   const leadOffer = activeProduct?.offers?.[0];
@@ -193,8 +201,9 @@ export default function ShoppingPage() {
           window.open(data.approveUrl, "_blank", "noopener,noreferrer");
         }, 800);
       }
-    } catch (err: any) {
-      setCheckoutStatus(`PayPal Checkout Error: ${err.message || "Failed to initialize order"}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Checkout initialization failed";
+      setCheckoutStatus(`Error: ${message}`);
     }
   };
 
@@ -202,7 +211,7 @@ export default function ShoppingPage() {
     <div className="min-h-screen flex flex-col bg-[#060c18] text-slate-100">
       {/* Top Banner & Header - Solid PayPal Enterprise Styling */}
       <header className="border-b border-[#172b4d] bg-[#081222] sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-wrap items-center justify-between gap-4">
           <div className="flex items-center gap-3">
             <div className="w-10 h-10 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center shadow-md overflow-hidden p-1">
               {/* eslint-disable-next-line @next/next/no-img-element */}
@@ -247,7 +256,7 @@ export default function ShoppingPage() {
       </header>
 
       {/* Main Experience */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 py-6">
+      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
         {activeProduct ? (
           /* ==================== PRODUCT DETAIL PAGE (PDP) ==================== */
           <div className="space-y-6 animate-in fade-in duration-200">
@@ -256,7 +265,7 @@ export default function ShoppingPage() {
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => setSelectedProduct(null)}
+                onClick={handleCloseProduct}
                 className="gap-2 border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-[#cbd5e1]"
               >
                 <ArrowLeft className="w-4 h-4" />
@@ -293,33 +302,33 @@ export default function ShoppingPage() {
                       )}
                     </div>
                     <p className="text-xs text-[#cbd5e1] max-w-3xl leading-relaxed">
-                      {paypalEvaluation.explanation}
+                      {typeof paypalEvaluation.explanation === "string" ? paypalEvaluation.explanation : ""}
                     </p>
                   </div>
 
                   {/* Actions */}
-                  <div className="flex items-center gap-2 shrink-0 flex-wrap">
-                    {paypalEvaluation.pay_in_4.available && (
+                  <div className="w-full max-w-md min-h-[45px] flex items-center gap-3 shrink-0 flex-wrap">
+                    {Boolean((paypalEvaluation.pay_in_4 as { available?: boolean })?.available) && (
                       <Button
-                        size="sm"
+                        size="default"
                         onClick={() => handlePayPalCheckout(true)}
                         className="bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold shadow-sm"
                       >
                         <CreditCard className="w-4 h-4 mr-1.5" />
-                        PayPal Pay in 4 (${paypalEvaluation.pay_in_4.first_payment_today.toFixed(2)} today)
+                        PayPal Pay in 4 (${Number((paypalEvaluation.pay_in_4 as { first_payment_today?: number })?.first_payment_today ?? 0).toFixed(2)} today)
                       </Button>
                     )}
                     <Button
-                      size="sm"
+                      size="default"
                       variant="outline"
                       onClick={() => handlePayPalCheckout(false)}
                       className="border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-slate-200"
                     >
-                      Pay in Full (${paypalEvaluation.amount.toFixed(2)})
+                      Pay in Full (${Number(paypalEvaluation.amount ?? 0).toFixed(2)})
                     </Button>
                     <Link
-                      href={`/dashboard?item=${encodeURIComponent(activeProduct.title)}&amount=${leadOffer?.price.price || paypalEvaluation.amount || 100}`}
-                      className="inline-flex items-center gap-1.5 px-3 py-2 rounded-lg border border-[#0070BA] bg-[#002952] hover:bg-[#003870] text-xs font-semibold text-[#93c5fd] transition shrink-0"
+                      href={`/dashboard?item=${encodeURIComponent(activeProduct.title)}&amount=${leadOffer?.price.price || (paypalEvaluation.amount as number) || 100}`}
+                      className="inline-flex items-center gap-1.5 px-4 py-2.5 rounded-lg border border-[#0070BA] bg-[#002952] hover:bg-[#003870] text-xs font-semibold text-[#93c5fd] transition shrink-0"
                     >
                       <TrendingUp className="w-3.5 h-3.5 text-[#38bdf8]" />
                       <span>Deep AG Grid Simulation &rarr;</span>
@@ -420,6 +429,7 @@ export default function ShoppingPage() {
                   const isActive = activeCategoryQuery === cat.query;
                   return (
                     <button
+                      type="button"
                       key={cat.query}
                       onClick={() => setActiveCategoryQuery(cat.query)}
                       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition ${
@@ -461,7 +471,7 @@ export default function ShoppingPage() {
 
       {/* Footer */}
       <footer className="border-t border-[#172b4d] bg-[#081222] py-6 text-xs text-[#64748b] text-center">
-        <div className="max-w-7xl mx-auto px-4 flex flex-col sm:flex-row items-center justify-between gap-4">
+        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col sm:flex-row items-center justify-between gap-4">
           <p>© 2026 PayPal Guardian Commerce — Built with Channel3 SDK, Next.js, and PayPal Sandbox APIs.</p>
           <div className="flex items-center gap-4 text-[#8ea9cb]">
             <span>Channel3 SDK 4.6</span>
