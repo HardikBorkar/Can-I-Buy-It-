@@ -224,7 +224,28 @@ export function CopilotChat() {
                       : "bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none"
                   }`}
                 >
-                  <div className="whitespace-pre-line">{msg.text}</div>
+                  <div className="space-y-1.5">
+                    {msg.text.split("\n").map((line, idx) => {
+                      if (!line.trim()) return <div key={idx} className="h-1" />;
+                      
+                      // Format bold **text** into <strong>
+                      const parts = line.split(/(\*\*.*?\*\*)/g);
+                      return (
+                        <p key={idx} className="leading-relaxed">
+                          {parts.map((part, pIdx) => {
+                            if (part.startsWith("**") && part.endsWith("**")) {
+                              return (
+                                <strong key={pIdx} className="font-semibold text-white">
+                                  {part.slice(2, -2)}
+                                </strong>
+                              );
+                            }
+                            return part;
+                          })}
+                        </p>
+                      );
+                    })}
+                  </div>
 
                   {/* Render Action Card if present */}
                   {msg.actionCard && (
@@ -308,6 +329,32 @@ export function CopilotChat() {
                               </span>
                             </button>
                           )}
+                        </div>
+                      )}
+
+                      {/* Invoice Prompt Card */}
+                      {msg.actionCard.type === "invoice_prompt" && (
+                        <div className="bg-slate-950/80 rounded-xl p-3 border border-indigo-900/50 space-y-2">
+                          <div className="flex items-center justify-between text-white font-semibold">
+                            <span className="flex items-center gap-1.5 text-indigo-300">
+                              <Receipt className="w-4 h-4" />
+                              PayPal Invoice (REST v2)
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              ${msg.actionCard.defaultAmount?.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-300 space-y-1 bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <div><span className="text-slate-400">Recipient:</span> {msg.actionCard.defaultRecipient}</div>
+                            <div><span className="text-slate-400">Service:</span> {msg.actionCard.defaultDescription}</div>
+                          </div>
+                          <Link
+                            href="/dashboard"
+                            className="mt-2 flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] shadow-md transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open Invoicing Console on Dashboard →</span>
+                          </Link>
                         </div>
                       )}
                     </div>

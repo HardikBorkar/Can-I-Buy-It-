@@ -37,33 +37,47 @@ export async function POST(req: NextRequest) {
     }
 
     // 2. Affordability Simulation ("Can I afford...", "Can I buy...")
-    const affordRegex = /(?:can i (?:afford|buy)|simulate|purchase|buy)\s+(?:a\s+|an\s+)?(?:[\$]?(\d+(?:\.\d{1,2})?)\s+(.+)|(.+?)\s+for\s+[\$]?(\d+(?:\.\d{1,2})?)|(.+?)\s+[\$](\d+(?:\.\d{1,2})?))/i;
-    const directNumberMatch = lower.match(/[\$](\d+(?:\.\d{1,2})?)/) || lower.match(/(\d+(?:\.\d{1,2})?)\s*(?:dollars|usd)/);
+    const directNumberMatch =
+      lower.match(/[\$](\d+(?:,\d{3})*(?:\.\d{1,2})?)/) ||
+      lower.match(/(\d+(?:,\d{3})*(?:\.\d{1,2})?)\s*(?:dollars|usd|bucks)/);
 
     if (
       lower.includes("can i afford") ||
       lower.includes("can i buy") ||
       lower.includes("simulate") ||
       lower.includes("afford") ||
-      (directNumberMatch && (lower.includes("buy") || lower.includes("purchase") || lower.includes("camera") || lower.includes("macbook") || lower.includes("laptop")))
+      (directNumberMatch && (lower.includes("buy") || lower.includes("purchase") || lower.includes("spend")))
     ) {
       let amount = 850.0;
       let item = "Candidate Item";
 
       // Try extract amount
       if (directNumberMatch) {
-        amount = parseFloat(directNumberMatch[1]);
+        amount = parseFloat(directNumberMatch[1].replace(/,/g, ""));
       } else {
         const numMatch = lower.match(/\b\d+(\.\d{1,2})?\b/);
-        if (numMatch) amount = parseFloat(numMatch[0]);
+        if (numMatch) {
+          amount = parseFloat(numMatch[0]);
+        } else if (lower.includes("bugatti") || lower.includes("buggati") || lower.includes("ferrari") || lower.includes("car")) {
+          amount = 250000.0;
+        } else if (lower.includes("house") || lower.includes("mansion")) {
+          amount = 800000.0;
+        }
       }
 
       // Try extract item name
-      if (lower.includes("camera")) item = "Sony Alpha a7 IV Camera";
+      if (lower.includes("bugatti") || lower.includes("buggati")) item = "Bugatti Supercar";
+      else if (lower.includes("ferrari")) item = "Ferrari";
+      else if (lower.includes("camera") || lower.includes("sony")) item = "Sony Alpha a7 IV Camera";
       else if (lower.includes("macbook") || lower.includes("laptop")) item = "MacBook Pro M3";
       else if (lower.includes("airpod") || lower.includes("headphone")) item = "AirPods Max";
       else if (lower.includes("sneaker") || lower.includes("shoe")) item = "Adidas Sneaker";
-      else item = "Candidate Purchase";
+      else if (lower.includes("iphone") || lower.includes("phone")) item = "Smartphone";
+      else {
+        // Extract whatever comes after "afford a/an" or "buy a/an"
+        const cleanMatch = message.match(/(?:afford|buy|purchase)\s+(?:a\s+|an\s+)?([a-zA-Z0-9\s]+?)(?:\s+(?:for|of|\$|\?)|$)/i);
+        item = cleanMatch && cleanMatch[1]?.trim() ? cleanMatch[1].trim() : "Candidate Purchase";
+      }
 
       // 90-day simulation logic:
       // Starting balance: 1850. Rent on 1st: -1200. Living expense: -15/day.
