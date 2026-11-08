@@ -17,8 +17,15 @@ const hasLiveCredentials = Boolean(
   !clientSecret.toLowerCase().includes("your_")
 );
 
-let cachedToken: string | null = null;
-let tokenExpiresAt: number = 0;
+// Persist token cache in globalThis across worker re-evaluations, serverless warm starts, and dev reloads
+declare global {
+  // eslint-disable-next-line no-var
+  var __paypalTokenCache: { token: string | null; expiresAt: number } | undefined;
+}
+
+if (!globalThis.__paypalTokenCache) {
+  globalThis.__paypalTokenCache = { token: null, expiresAt: 0 };
+}
 
 /**
  * Resilient fetch helper with an active timeout to avoid connection hangs.
@@ -47,9 +54,10 @@ async function fetchWithTimeout(
  * Resilient against network drops, firewall blocks, and sandbox timeouts.
  */
 export async function getPayPalAccessToken(): Promise<string> {
+  const cache = globalThis.__paypalTokenCache!;
   const now = Date.now();
-  if (cachedToken && now < tokenExpiresAt - 60000) {
-    return cachedToken;
+  if (cache.token && now < cache.expiresAt - 60000) {
+    return cache.token;
   }
 
   if (!hasLiveCredentials) {
@@ -75,9 +83,9 @@ export async function getPayPalAccessToken(): Promise<string> {
     }
 
     const data = await res.json();
-    cachedToken = data.access_token;
-    tokenExpiresAt = Date.now() + (data.expires_in || 3600) * 1000;
-    return cachedToken!;
+    cache.token = data.access_token;
+    cache.expiresAt = Date.now() + (data.expires_in || 3600) * 1000;
+    return cache.token!;
   } catch (err: unknown) {
     const message = err instanceof Error ? err.message : String(err);
     console.warn("PayPal OAuth connection timed out or unreachable (" + message + "). Operating in resilient Sandbox Mode.");
