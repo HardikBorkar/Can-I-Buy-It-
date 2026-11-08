@@ -246,3 +246,4 @@ export function PaymentSuccessTick({
     </div>
   );
 }
+

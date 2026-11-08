@@ -31,6 +31,7 @@ import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { ProductSearch } from "@/components/product-search";
 import { ProductDetails } from "@/components/product-details";
+import { LandingHero } from "@/components/landing-hero";
 import { useVariantSelection, type VariantResolveInput } from "@/hooks/use-variant-selection";
 import type { SearchFetcher, SearchFetchInput } from "@/hooks/use-product-search";
 import type { SimilarFetcher, SimilarFetchInput } from "@/hooks/use-product-recommendations";
@@ -266,8 +267,18 @@ export default function ShoppingPage() {
         </div>
       </header>
 
+      {/* Full-width 3D Background Cubes Landing Hero */}
+      {!activeProduct && (
+        <LandingHero
+          onScrollToStorefront={() => {
+            const el = document.getElementById("storefront-stage");
+            el?.scrollIntoView({ behavior: "smooth" });
+          }}
+        />
+      )}
+
       {/* Main Experience */}
-      <main className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-6">
+      <main id="storefront-stage" className="flex-1 max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 scroll-mt-16">
         {activeProduct ? (
           /* ==================== PRODUCT DETAIL PAGE (PDP) ==================== */
           <div className="space-y-6 animate-in fade-in duration-200">
@@ -384,46 +395,33 @@ export default function ShoppingPage() {
         ) : (
           /* ==================== PRODUCT SEARCH & GRID VIEW ==================== */
           <div className="space-y-6">
-            {/* HERO SECTION WITH PAYPAL LOGO WATERMARK & GUARDIAN SHOWCASE */}
-            <div className="relative overflow-hidden bg-[#0b1629] border border-[#1a335a] rounded-3xl p-6 sm:p-8 shadow-2xl">
-              {/* Official PayPal Logo Watermark */}
-              <div className="absolute right-8 top-1/2 -translate-y-1/2 opacity-10 pointer-events-none select-none hidden lg:block">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/paypal-logo.png" alt="" aria-hidden="true" className="w-64 h-auto object-contain" />
+            {/* STOREFRONT CATALOG HEADER BAR */}
+            <div className="flex flex-wrap items-center justify-between gap-4 border-b border-[#172b4d] pb-4">
+              <div>
+                <h2 className="text-xl sm:text-2xl font-bold text-white flex items-center gap-2">
+                  <span>Storefront Product Catalog</span>
+                  <Badge variant="outline" className="border-[#0070BA]/60 text-[#38bdf8] bg-[#002952] text-xs">
+                    Channel3 Live Discovery
+                  </Badge>
+                </h2>
+                <p className="text-xs text-[#8ea9cb] mt-1">
+                  Search 100M+ items across 25,000+ verified retailers. 90-day cash flow simulation protects your $500 safety buffer.
+                </p>
               </div>
 
-              <div className="relative z-10 max-w-2xl space-y-4">
-                <div className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-[#002952] border border-[#00457C] text-xs font-semibold text-[#38bdf8]">
-                  <ShieldCheck className="w-3.5 h-3.5" />
-                  <span>PayPal Guardian Autonomous Commerce</span>
+              <div className="flex items-center gap-3">
+                <div className="flex items-center gap-2 px-3.5 py-1.5 rounded-xl bg-[#070e1b] border border-[#162846] text-xs text-[#cbd5e1]">
+                  <Wallet className="w-3.5 h-3.5 text-[#34d399]" />
+                  <span>Sandbox Balance: <strong className="text-white font-mono">$1,850.00</strong></span>
                 </div>
 
-                <h1 className="text-3xl sm:text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-                  Shop 100M+ Products with{" "}
-                  <span className="text-[#38bdf8]">
-                    Autonomous Financial Guardrails
-                  </span>
-                </h1>
-
-                <p className="text-sm text-[#8ea9cb] leading-relaxed">
-                  Search across 25,000+ top retailers including Nike, B&amp;H, Best Buy, and Target. Before spending a single dollar, our 90-day simulation engine protects your $500 safety buffer against upcoming rent and bills, unlocking <strong className="text-white">PayPal Pay in 4</strong> when paying upfront is unsafe.
-                </p>
-
-                {/* Primary Hero Actions */}
-                <div className="flex flex-wrap items-center gap-3 pt-2">
-                  <Link
-                    href="/dashboard"
-                    className="inline-flex items-center gap-2 px-5 py-2.5 rounded-xl bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold text-xs shadow-lg transition"
-                  >
-                    <ShieldCheck className="w-4 h-4" />
-                    <span>Launch AG Grid Financial Dashboard &rarr;</span>
-                  </Link>
-
-                  <div className="flex items-center gap-2 px-3 py-2 rounded-xl bg-[#070e1b] border border-[#162846] text-xs text-[#cbd5e1]">
-                    <Wallet className="w-3.5 h-3.5 text-[#34d399]" />
-                    <span>Sandbox Balance: <strong className="text-white font-mono">$1,850.00</strong></span>
-                  </div>
-                </div>
+                <Link
+                  href="/dashboard"
+                  className="hidden sm:inline-flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold text-xs shadow-md transition"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-blue-200" />
+                  <span>AG Grid Ledger &rarr;</span>
+                </Link>
               </div>
             </div>
 
