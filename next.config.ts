@@ -10,6 +10,18 @@ const nextConfig: NextConfig = {
       },
     },
   },
+  async rewrites() {
+    return [
+      {
+        source: "/api/copilot/actions/:path*",
+        destination: "http://127.0.0.1:8000/api/copilot/actions/:path*",
+      },
+      {
+        source: "/api/copilot/stream",
+        destination: "http://127.0.0.1:8000/api/copilot/chat",
+      },
+    ];
+  },
 };
 
 export default nextConfig;

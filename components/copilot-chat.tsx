@@ -2,6 +2,7 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Sparkles,
   X,
@@ -10,6 +11,7 @@ import {
   CheckCircle2,
   Receipt,
   ExternalLink,
+  Maximize2,
 } from "lucide-react";
 
 interface ActionCardData {
@@ -39,6 +41,7 @@ interface Message {
 }
 
 export function CopilotChat() {
+  const pathname = usePathname();
   const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
@@ -158,7 +161,7 @@ export function CopilotChat() {
     }
   };
 
-  if (!mounted) return null;
+  if (!mounted || pathname === "/copilot") return null;
 
   return (
     <>
@@ -202,6 +205,14 @@ export function CopilotChat() {
             </div>
 
             <div className="flex items-center gap-1">
+              <Link
+                href="/copilot"
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                title="Open Dedicated Copilot Workspace"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </Link>
               <button
                 type="button"
                 onClick={() => setIsOpen(false)}
