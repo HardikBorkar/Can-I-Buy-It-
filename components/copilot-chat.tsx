@@ -230,21 +230,38 @@ export function CopilotChat() {
                   <div className="space-y-1.5">
                     {msg.text.split("\n").map((line, idx) => {
                       if (!line.trim()) return <div key={idx} className="h-1" />;
-                      
+
+                      // Detect list items: lines starting with "* " or "• " or "- " or digits like "1. "
+                      const listMatch = line.match(/^(\s*)([\*\-•]|\d+\.)\s+(.*)$/);
+                      const displayLine = listMatch ? listMatch[3] : line;
+                      const isList = !!listMatch;
+
                       // Format bold **text** into <strong>
-                      const parts = line.split(/(\*\*.*?\*\*)/g);
+                      const renderInline = (text: string) => {
+                        const parts = text.split(/(\*\*.*?\*\*)/g);
+                        return parts.map((part, pIdx) => {
+                          if (part.startsWith("**") && part.endsWith("**")) {
+                            return (
+                              <strong key={pIdx} className="font-semibold text-white">
+                                {part.slice(2, -2)}
+                              </strong>
+                            );
+                          }
+                          return part;
+                        });
+                      };
+
+                      if (isList) {
+                        return (
+                          <p key={idx} className="leading-relaxed flex gap-1.5">
+                            <span className="text-blue-400 mt-0.5 shrink-0">•</span>
+                            <span>{renderInline(displayLine)}</span>
+                          </p>
+                        );
+                      }
                       return (
                         <p key={idx} className="leading-relaxed">
-                          {parts.map((part, pIdx) => {
-                            if (part.startsWith("**") && part.endsWith("**")) {
-                              return (
-                                <strong key={pIdx} className="font-semibold text-white">
-                                  {part.slice(2, -2)}
-                                </strong>
-                              );
-                            }
-                            return part;
-                          })}
+                          {renderInline(displayLine)}
                         </p>
                       );
                     })}

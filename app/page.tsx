@@ -395,7 +395,7 @@ export default function ShoppingPage() {
                 </h1>
 
                 <p className="text-sm text-[#8ea9cb] leading-relaxed">
-                  Search across 25,000+ top retailers including Nike, B&amp;H, Best Buy, and Target. Before spending a single dollar, our 90-day simulation engine protects your $500 safety buffer against upcoming rent and bills, unlocking **PayPal Pay in 4** when paying upfront is unsafe.
+                  Search across 25,000+ top retailers including Nike, B&amp;H, Best Buy, and Target. Before spending a single dollar, our 90-day simulation engine protects your $500 safety buffer against upcoming rent and bills, unlocking <strong className="text-white">PayPal Pay in 4</strong> when paying upfront is unsafe.
                 </p>
 
                 {/* Primary Hero Actions */}
