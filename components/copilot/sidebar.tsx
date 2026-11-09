@@ -86,14 +86,9 @@ export function CopilotSidebar({
         >
           <div className="flex items-center min-w-0">
             {!isCollapsed && (
-              <div className="truncate">
-                <span className="font-semibold text-xs text-zinc-100 tracking-tight block truncate">
-                  Guardian Copilot
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono block">
-                  v2.4
-                </span>
-              </div>
+              <span className="font-semibold text-xs text-zinc-100 tracking-tight block truncate">
+                Guardian Copilot
+              </span>
             )}
           </div>
 
@@ -316,7 +311,7 @@ export function CopilotSidebar({
       </div>
 
       {/* 3. Bottom Footer: Minimal User Profile & Collapse Toggle */}
-      <div className="p-2 border-t border-zinc-850/60 flex items-center justify-between gap-1">
+      <div className="p-2 flex items-center justify-between gap-1">
         {!isCollapsed ? (
           <>
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs min-w-0">
