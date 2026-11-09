@@ -442,8 +442,8 @@ export default function StorefrontPage() {
                       onClick={() => setActiveCategoryQuery(cat.query)}
                       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition ${
                         isActive
-                          ? "bg-[#0070BA] text-white shadow-md"
-                          : "bg-[#0b1629] hover:bg-[#10203a] text-[#8ea9cb] hover:text-white border border-[#172b4d]"
+                          ? "bg-[#003087] text-white shadow-md border border-[#003087]"
+                          : "bg-[#0070BA] hover:bg-[#005ea6] text-white shadow-md"
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />
