@@ -777,7 +777,7 @@ function DashboardContent() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Invoice #{invoiceResult.number} Successfully Dispatched!
+                      Invoice #{invoiceResult.invoiceNumber || invoiceResult.invoiceId} Successfully Dispatched!
                     </span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
                       {invoiceResult.status}
