@@ -20,11 +20,11 @@ const hasLiveCredentials = Boolean(
 // Persist token cache in globalThis across worker re-evaluations, serverless warm starts, and dev reloads
 declare global {
   // eslint-disable-next-line no-var
-  var __paypalTokenCache: { token: string | null; expiresAt: number } | undefined;
+  var __paypalTokenCache: Record<string, { token: string | null; expiresAt: number }> | undefined;
 }
 
 if (!globalThis.__paypalTokenCache) {
-  globalThis.__paypalTokenCache = { token: null, expiresAt: 0 };
+  globalThis.__paypalTokenCache = {};
 }
 
 /**
@@ -33,7 +33,7 @@ if (!globalThis.__paypalTokenCache) {
 async function fetchWithTimeout(
   url: string,
   options: RequestInit = {},
-  timeoutMs: number = 3500
+  timeoutMs: number = 5000
 ): Promise<Response> {
   const controller = new AbortController();
   const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
@@ -51,10 +51,15 @@ async function fetchWithTimeout(
 
 /**
  * Exchange Client ID and Secret for an OAuth 2.0 Bearer access token.
+ * Supports specific permission scopes (e.g. invoicing).
  * Resilient against network drops, firewall blocks, and sandbox timeouts.
  */
-export async function getPayPalAccessToken(): Promise<string> {
-  const cache = globalThis.__paypalTokenCache!;
+export async function getPayPalAccessToken(scope?: string): Promise<string> {
+  const cacheKey = scope || "default";
+  if (!globalThis.__paypalTokenCache![cacheKey]) {
+    globalThis.__paypalTokenCache![cacheKey] = { token: null, expiresAt: 0 };
+  }
+  const cache = globalThis.__paypalTokenCache![cacheKey];
   const now = Date.now();
   if (cache.token && now < cache.expiresAt - 60000) {
     return cache.token;
@@ -65,16 +70,24 @@ export async function getPayPalAccessToken(): Promise<string> {
   }
 
   const basicAuth = Buffer.from(`${clientId}:${clientSecret}`).toString("base64");
+  const bodyParams = new URLSearchParams({ grant_type: "client_credentials" });
+  if (scope) {
+    bodyParams.set("scope", scope);
+  }
 
   try {
-    const res = await fetchWithTimeout(`${PAYPAL_BASE_URL}/v1/oauth2/token`, {
-      method: "POST",
-      headers: {
-        Authorization: `Basic ${basicAuth}`,
-        "Content-Type": "application/x-www-form-urlencoded",
+    const res = await fetchWithTimeout(
+      `${PAYPAL_BASE_URL}/v1/oauth2/token`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Basic ${basicAuth}`,
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: bodyParams.toString(),
       },
-      body: "grant_type=client_credentials",
-    }, 4000);
+      6000
+    );
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -113,63 +126,67 @@ export async function createPayPalOrder(params: {
   const requestId = crypto.randomUUID();
   const installmentAmount = Math.round((amount / 4) * 100) / 100;
 
-  const token = await getPayPalAccessToken();
+  try {
+    const token = await getPayPalAccessToken();
 
-  if (token === "MOCK_SANDBOX_TOKEN") {
-    const mockId = `SANDBOX-ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-    return {
-      orderId: mockId,
-      status: "CREATED",
-      approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
-      payIn4,
-      installmentAmount,
-    };
-  }
+    if (token === "MOCK_SANDBOX_TOKEN") {
+      const mockId = `SANDBOX-ORD-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      return {
+        orderId: mockId,
+        status: "CREATED",
+        approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
+        payIn4,
+        installmentAmount,
+      };
+    }
 
-  const payload: Record<string, unknown> = {
-    intent: "CAPTURE",
-    purchase_units: [
-      {
-        reference_id: `REF-${Date.now()}`,
-        description: `${itemName} - Evaluated by PayPal Guardian`,
-        amount: {
-          currency_code: currency,
-          value: amount.toFixed(2),
-        },
-      },
-    ],
-    application_context: {
-      brand_name: "PayPal Guardian Safe Commerce",
-      landing_page: "NO_PREFERENCE",
-      user_action: "PAY_NOW",
-      return_url: "http://localhost:3000/checkout/success",
-      cancel_url: "http://localhost:3000/checkout/cancel",
-    },
-  };
-
-  if (payIn4) {
-    payload.payment_source = {
-      paypal: {
-        attributes: {
-          vault: {
-            store_in_vault: "ON_SUCCESS",
-            usage_type: "MERCHANT",
+    const payload: Record<string, unknown> = {
+      intent: "CAPTURE",
+      purchase_units: [
+        {
+          reference_id: `REF-${Date.now()}`,
+          description: `${itemName} - Evaluated by PayPal Guardian`,
+          amount: {
+            currency_code: currency,
+            value: amount.toFixed(2),
           },
         },
+      ],
+      application_context: {
+        brand_name: "PayPal Guardian Safe Commerce",
+        landing_page: "NO_PREFERENCE",
+        user_action: "PAY_NOW",
+        return_url: "http://localhost:3000/checkout/success",
+        cancel_url: "http://localhost:3000/checkout/cancel",
       },
     };
-  }
 
-  try {
-    const res = await fetchWithTimeout(`${PAYPAL_BASE_URL}/v2/checkout/orders`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "PayPal-Request-Id": requestId,
+    if (payIn4) {
+      payload.payment_source = {
+        paypal: {
+          attributes: {
+            vault: {
+              store_in_vault: "ON_SUCCESS",
+              usage_type: "MERCHANT",
+            },
+          },
+        },
+      };
+    }
+
+    const res = await fetchWithTimeout(
+      `${PAYPAL_BASE_URL}/v2/checkout/orders`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "PayPal-Request-Id": requestId,
+        },
+        body: JSON.stringify(payload),
       },
-      body: JSON.stringify(payload),
-    }, 4500);
+      6500
+    );
 
     if (!res.ok) {
       const errorText = await res.text();
@@ -287,80 +304,89 @@ export async function createAndSendInvoice(params: {
     note = "Billed via PayPal Guardian Agent",
   } = params;
 
-  const token = await getPayPalAccessToken();
-  const requestId = crypto.randomUUID();
-
-  if (token === "MOCK_SANDBOX_TOKEN") {
-    const mockId = `INV2-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
-    return {
-      invoiceId: mockId,
-      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
-      status: "SENT",
-      paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${mockId}`,
-      amount,
-      recipient: recipientEmail,
-      isMock: true,
-    };
-  }
-
-  // 1. Generate sequential invoice number (or fallback)
-  let invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
   try {
-    const numRes = await fetchWithTimeout(`${PAYPAL_BASE_URL}/v2/invoicing/generate-next-invoice-number`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-      },
-    }, 3000);
-    if (numRes.ok) {
-      const numData = await numRes.json();
-      if (numData.invoice_number) {
-        invoiceNumber = numData.invoice_number;
-      }
+    // Request access token with explicit Invoicing permission scope
+    const token = await getPayPalAccessToken("https://uri.paypal.com/services/invoicing");
+    const requestId = crypto.randomUUID();
+
+    if (token === "MOCK_SANDBOX_TOKEN") {
+      const mockId = `INV2-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
+      return {
+        invoiceId: mockId,
+        invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
+        status: "SENT",
+        paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${mockId}`,
+        amount,
+        recipient: recipientEmail,
+        isMock: true,
+      };
     }
-  } catch (err) {
-    console.warn("Failed to generate sequential invoice number, using fallback:", err);
-  }
 
-  // 2. Create Draft Invoice
-  const todayStr = new Date().toISOString().split("T")[0];
-  const payload = {
-    detail: {
-      invoice_number: invoiceNumber,
-      invoice_date: todayStr,
-      currency_code: currency,
-      note,
-    },
-    primary_recipients: [
-      {
-        billing_info: {
-          email_address: recipientEmail,
+    // 1. Generate sequential invoice number (or fallback)
+    let invoiceNumber = `INV-${Date.now().toString().slice(-6)}`;
+    try {
+      const numRes = await fetchWithTimeout(
+        `${PAYPAL_BASE_URL}/v2/invoicing/generate-next-invoice-number`,
+        {
+          method: "POST",
+          headers: {
+            Authorization: `Bearer ${token}`,
+            "Content-Type": "application/json",
+          },
         },
-      },
-    ],
-    items: [
-      {
-        name: description.slice(0, 100),
-        quantity: "1",
-        unit_amount: {
-          currency_code: currency,
-          value: amount.toFixed(2),
-        },
-      },
-    ],
-  };
+        4000
+      );
+      if (numRes.ok) {
+        const numData = await numRes.json();
+        if (numData.invoice_number) {
+          invoiceNumber = numData.invoice_number;
+        }
+      }
+    } catch (err) {
+      console.warn("Failed to generate sequential invoice number, using fallback:", err);
+    }
 
-  try {
-    const draftRes = await fetchWithTimeout(`${PAYPAL_BASE_URL}/v2/invoicing/invoices`, {
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${token}`,
-        "Content-Type": "application/json",
-        "PayPal-Request-Id": requestId,
+    // 2. Create Draft Invoice
+    const todayStr = new Date().toISOString().split("T")[0];
+    const payload = {
+      detail: {
+        invoice_number: invoiceNumber,
+        invoice_date: todayStr,
+        currency_code: currency,
+        note,
       },
-      body: JSON.stringify(payload),
-    }, 4000);
+      primary_recipients: [
+        {
+          billing_info: {
+            email_address: recipientEmail,
+          },
+        },
+      ],
+      items: [
+        {
+          name: description.slice(0, 100),
+          quantity: "1",
+          unit_amount: {
+            currency_code: currency,
+            value: amount.toFixed(2),
+          },
+        },
+      ],
+    };
+
+    const draftRes = await fetchWithTimeout(
+      `${PAYPAL_BASE_URL}/v2/invoicing/invoices`,
+      {
+        method: "POST",
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json",
+          "PayPal-Request-Id": requestId,
+        },
+        body: JSON.stringify(payload),
+      },
+      6000
+    );
 
     if (!draftRes.ok) {
       const errorText = await draftRes.text();
@@ -378,30 +404,46 @@ export async function createAndSendInvoice(params: {
     }
 
     const invoiceData = await draftRes.json();
-    const invoiceId = invoiceData.id;
+    // In PayPal v2 Invoicing API, draft invoice creation returns { rel: 'self', href: '.../invoices/INV2-XXXX-XXXX' }
+    const invoiceId = invoiceData.id || invoiceData.href?.split("/").pop() || invoiceNumber;
 
     // 3. Send the invoice
     let status = "DRAFT";
-    try {
-      const sendRes = await fetchWithTimeout(`${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoiceId}/send`, {
-        method: "POST",
-        headers: {
-          Authorization: `Bearer ${token}`,
-          "Content-Type": "application/json",
-          "PayPal-Request-Id": crypto.randomUUID(),
-        },
-        body: JSON.stringify({ send_to_recipient: true }),
-      }, 3500);
-      if (sendRes.ok || sendRes.status === 202) {
-        status = "SENT";
-      }
-    } catch (err) {
-      console.warn("Invoice created but failed to dispatch send notification:", err);
-    }
-
-    const paymentUrl =
+    let paymentUrl =
       invoiceData.links?.find((l: { rel: string; href: string }) => l.rel === "payer-view")?.href ||
       `https://www.sandbox.paypal.com/invoice/p/#${invoiceId}`;
+
+    if (invoiceId) {
+      try {
+        const sendRes = await fetchWithTimeout(
+          `${PAYPAL_BASE_URL}/v2/invoicing/invoices/${invoiceId}/send`,
+          {
+            method: "POST",
+            headers: {
+              Authorization: `Bearer ${token}`,
+              "Content-Type": "application/json",
+              "PayPal-Request-Id": crypto.randomUUID(),
+            },
+            body: JSON.stringify({ send_to_recipient: true }),
+          },
+          6000
+        );
+
+        if (sendRes.ok || sendRes.status === 202) {
+          status = "SENT";
+          try {
+            const sendData = await sendRes.json();
+            if (sendData?.href) {
+              paymentUrl = sendData.href;
+            }
+          } catch {
+            // response body might be empty or 204
+          }
+        }
+      } catch (err) {
+        console.warn("Invoice created but failed to dispatch send notification:", err);
+      }
+    }
 
     return {
       invoiceId,
@@ -418,7 +460,7 @@ export async function createAndSendInvoice(params: {
     const mockId = `INV2-${Math.random().toString(36).substring(2, 9).toUpperCase()}`;
     return {
       invoiceId: mockId,
-      invoiceNumber,
+      invoiceNumber: `INV-${Date.now().toString().slice(-6)}`,
       status: "SENT",
       paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${mockId}`,
       amount,
