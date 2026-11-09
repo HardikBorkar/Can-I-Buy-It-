@@ -7,6 +7,7 @@ from langchain_core.messages import AIMessage
 from backend.app.agent.state import AgentState
 from backend.app.core.security import generate_idempotency_key
 from backend.app.core.config import settings
+from backend.app.core.invariants import evaluate_spend_invariant
 from src.channel3_client import Channel3Client
 
 logger = logging.getLogger("guardian.node.planner")
@@ -66,22 +67,51 @@ async def planner_node(state: AgentState) -> Dict[str, Any]:
     matched_kw = next((kw for kw in product_keywords if kw in user_query), None)
 
     if scraped or matched_kw or "buy" in user_query or "order" in user_query or "purchase" in user_query or "afford" in user_query:
-        item_title = "Sony Alpha a7 IV Camera"
-        item_price = 850.0
+        item_title = ""
+        buy_match = re.search(
+            r"(?:buy|order|purchase|checkout|authorize)\s+(?:a|an|the|some)?\s*(.*?)(?:\s+for\s+\$|\s+at\s+\$|\s+\$|\s+with|\s+using|[?.!,]|$)",
+            user_query,
+            re.IGNORECASE,
+        )
+        if buy_match and buy_match.group(1) and len(buy_match.group(1).strip()) > 1:
+            candidate = buy_match.group(1).strip().rstrip("?.!,;:")
+            if candidate.lower() not in ("now", "it", "this", "today", "please", "item", "product"):
+                item_title = candidate.title()
+
+        if not item_title:
+            if "jean" in user_query:
+                item_title = "Column Straight Fit Denim Jeans"
+            elif "laptop" in user_query or "macbook" in user_query:
+                item_title = "Apple MacBook Air 13-inch (M3)"
+            elif "camera" in user_query or "sony" in user_query:
+                item_title = "Sony Alpha a7 IV Camera"
+            elif matched_kw:
+                item_title = matched_kw.title()
+            else:
+                item_title = "Retail Purchase"
+
+        item_price = 100.0
+        if "camera" in item_title.lower() or "sony" in item_title.lower():
+            item_price = 850.0
+        elif "laptop" in item_title.lower() or "macbook" in item_title.lower():
+            item_price = 1099.0
+        elif "jean" in item_title.lower():
+            item_price = 258.0
+
         currency = "USD"
         recipient = "Merchant Store"
         products_found = []
 
         if scraped:
-            item_title = scraped.get("title", "Product Item")
-            item_price = float(scraped.get("price", 850.0))
+            item_title = scraped.get("title", item_title)
+            item_price = float(scraped.get("price", item_price))
             currency = scraped.get("currency", "USD")
             recipient = scraped.get("vendor_name", "Merchant Store")
         elif matched_kw or ("buy" in user_query and not re.search(r"\$\d+", user_query)):
             # Live product catalog query via Channel3
             try:
                 c3 = Channel3Client()
-                products_found = c3.search_products(matched_kw or "trending", limit=4)
+                products_found = c3.search_products(matched_kw or item_title.lower(), limit=4)
                 if products_found:
                     top_prod = products_found[0]
                     item_title = top_prod.get("title", item_title)
@@ -93,23 +123,28 @@ async def planner_node(state: AgentState) -> Dict[str, Any]:
 
         # Check explicit numbers in user query if not scraped and no catalog price
         if not scraped and not products_found:
-            amount_match = re.search(r"\$?(\d+(?:\.\d{1,2})?)", user_query)
-            if amount_match:
-                item_price = float(amount_match.group(1))
+            dollar_match = re.search(r"\$(\d+(?:\.\d{1,2})?)", user_query)
+            if dollar_match:
+                item_price = float(dollar_match.group(1))
+            else:
+                amount_match = re.search(r"\b(?:for|at|costs?|price\s+of)?\s*\$?(\d+(?:\.\d{1,2})?)\b", user_query)
+                if amount_match:
+                    item_price = float(amount_match.group(1))
 
-        # Financial invariant logic:
-        # Starting balance = $1,850. Rent on 1st = -$1,200. Living expenses = -$60.
-        # Floor = $500. Lowest full dip = 590 - item_price.
-        lowest_dip = 590.0 - item_price
-        pay_in_4_safe = (590.0 - (item_price / 4)) >= 500.0
+        # Financial invariant logic evaluated via shared invariant engine:
+        inv = evaluate_spend_invariant(item_price)
+        lowest_dip = inv["lowest_dip_full"]
+        pay_in_4_safe = inv["pay_in_4_safe"]
 
-        action_id = f"act-{uuid.uuid4().hex[:8]}"
+        user_id = state.get("user_id", "default_user")
+        ref_hash = str(uuid.uuid5(uuid.NAMESPACE_DNS, f"{user_id}:{item_title}:{item_price:.2f}"))[:8]
+        action_id = f"act-{ref_hash}"
         payload = {
             "amount": item_price,
             "currency": currency,
             "description": f"Purchase: {item_title}",
-            "reference_id": f"ref-{uuid.uuid4().hex[:6]}",
-            "pay_in_4": not (lowest_dip >= 500.0) and pay_in_4_safe,
+            "reference_id": f"ref-{ref_hash}",
+            "pay_in_4": not inv["safe_in_full"] and pay_in_4_safe,
             "item_name": item_title,
         }
 
@@ -122,9 +157,9 @@ async def planner_node(state: AgentState) -> Dict[str, Any]:
             "amount": item_price,
             "currency": currency,
             "recipient": recipient,
-            "risk_score": 98 if lowest_dip >= 500.0 or pay_in_4_safe else 62,
-            "safety_buffer_intact": lowest_dip >= 500.0 or pay_in_4_safe,
-            "post_balance_floor": max(lowest_dip, 590.0 - (item_price / 4)),
+            "risk_score": inv["risk_score"],
+            "safety_buffer_intact": inv["buffer_intact"],
+            "post_balance_floor": max(lowest_dip, inv["lowest_dip_pay_in_4"]),
             "requires_approval": True,
             "idempotency_key": idempotency_key,
             "raw_payload": payload,

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { searchChannel3Products } from "@/lib/channel3-server";
 import { createPayPalOrder } from "@/lib/paypal-server";
+import { FINANCIAL_STATE } from "@/lib/financial-state";
 
 interface ChatMessage {
   role: "user" | "assistant" | "system";
@@ -91,10 +92,10 @@ function getAgentSystemPrompt(activeAgent: string): string {
   return `You are ${roleTitle}, an autonomous financial agent for PayPal. Your mission is ${roleMission}
 
 FINANCIAL CONTEXT & SACRED INVARIANTS:
-- Current Live PayPal Balance: $1,850.00 USD
-- Protected Safety Buffer Floor: $500.00 USD (Sacred: NEVER allow spending that violates this floor)
-- Upcoming Committed Outflows (Next 30 Days): $1,392.00 ($1,200 Rent on 1st of month, $85 AWS, $42 SaaS, $65 Gym)
-- Safe Discretionary Spend: $1,350.00 USD
+- Current Live PayPal Balance: $${FINANCIAL_STATE.CURRENT_BALANCE.toFixed(2)} USD
+- Protected Safety Buffer Floor: $${FINANCIAL_STATE.SAFETY_BUFFER_FLOOR.toFixed(2)} USD (Sacred: NEVER allow spending that violates this floor)
+- Upcoming Committed Outflows (Next 30 Days): $${FINANCIAL_STATE.UPCOMING_COMMITMENTS_30D.toFixed(2)} ($1,200 Rent on 1st of month, $85 AWS, $42 SaaS, $65 Gym)
+- Safe Discretionary Spend: $${FINANCIAL_STATE.SAFE_DISCRETIONARY_SPEND.toFixed(2)} USD
 - Ecosystem: Integrated with PayPal REST v2 Sandbox (Orders, Capture, Invoicing) & Channel3 Universal Product API.
 
 CRITICAL OPERATING RULES:
@@ -163,16 +164,40 @@ export async function POST(req: NextRequest) {
 
     // 1. DIRECT PURCHASE / ORDER / BUY REQUEST
     if (isDirectOrderRequest) {
-      let itemName = "Sony Alpha a7 IV Camera";
-      let amount = 850.0;
+      // Intelligently extract item name from user message instead of hardcoding
+      let itemName = "";
+      const buyItemMatch = message.match(
+        /(?:buy|order|purchase|checkout|authorize)\s+(?:a|an|the|some)?\s*(.*?)(?:\s+for\s+\$|\s+at\s+\$|\s+\$|\s+with|\s+using|[?.!,]|$)/i
+      );
+      if (buyItemMatch && buyItemMatch[1] && buyItemMatch[1].trim().length > 1) {
+        const candidate = buyItemMatch[1].replace(/[?.!,;:]+$/, "").trim();
+        if (!["now", "it", "this", "today", "please", "item", "product"].includes(candidate.toLowerCase())) {
+          itemName = candidate.charAt(0).toUpperCase() + candidate.slice(1);
+        }
+      }
+
+      let amount = 100.0;
       let payIn4 = false;
 
-      if (lower.includes("jean")) {
-        itemName = "Column Straight Fit Denim Jeans";
-        amount = 258.0;
-      } else if (lower.includes("laptop") || lower.includes("macbook")) {
-        itemName = "Apple MacBook Air 13-inch (M3)";
-        amount = 1099.0;
+      if (!itemName) {
+        if (lower.includes("jean")) {
+          itemName = "Column Straight Fit Denim Jeans";
+          amount = 258.0;
+        } else if (lower.includes("laptop") || lower.includes("macbook")) {
+          itemName = "Apple MacBook Air 13-inch (M3)";
+          amount = 1099.0;
+        } else if (lower.includes("camera") || lower.includes("sony")) {
+          itemName = "Sony Alpha a7 IV Camera";
+          amount = 850.0;
+        } else if (matchedKeyword) {
+          itemName = matchedKeyword.charAt(0).toUpperCase() + matchedKeyword.slice(1);
+        } else {
+          itemName = "Retail Purchase";
+        }
+      } else {
+        if (lower.includes("jean")) amount = 258.0;
+        else if (lower.includes("laptop") || lower.includes("macbook")) amount = 1099.0;
+        else if (lower.includes("camera") || lower.includes("sony")) amount = 850.0;
       }
 
       const dollarMatch = lower.match(/\$(\d+(?:\.\d{1,2})?)/);
@@ -259,14 +284,14 @@ Then provide your concise response instructing the user to click the Authorize b
             const leadOffer = p.offers?.[0];
             const price = leadOffer?.price?.price || 0;
             const currency = leadOffer?.price?.currency || "USD";
-            const lowestDip = Math.round((590 - price) * 100) / 100;
+            const lowestDip = Math.round((FINANCIAL_STATE.LOWEST_PROJECTED_CYCLE_DIP - price) * 100) / 100;
             const installment = Math.round((price / 4) * 100) / 100;
-            const payIn4Lowest = Math.round((590 - installment) * 100) / 100;
+            const payIn4Lowest = Math.round((FINANCIAL_STATE.LOWEST_PROJECTED_CYCLE_DIP - installment) * 100) / 100;
 
             let affordabilityStatus: "SAFE_FULL" | "SAFE_PAY_IN_4" | "OVERDRAFT" = "SAFE_FULL";
-            if (lowestDip >= 500) {
+            if (lowestDip >= FINANCIAL_STATE.SAFETY_BUFFER_FLOOR) {
               affordabilityStatus = "SAFE_FULL";
-            } else if (payIn4Lowest >= 500) {
+            } else if (payIn4Lowest >= FINANCIAL_STATE.SAFETY_BUFFER_FLOOR) {
               affordabilityStatus = "SAFE_PAY_IN_4";
             } else {
               affordabilityStatus = "OVERDRAFT";

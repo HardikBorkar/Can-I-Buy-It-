@@ -1,11 +1,15 @@
 import unittest
 from backend.app.core.security import generate_idempotency_key
+from src.engine.simulator import CashFlowSimulator
+from src.engine.models import UserFinancialContext, FinancialProfile, EvaluationRequest
+from src.engine.reconciler import ReconciledEvent
 
 
 class TestFinancialSafetyInvariants(unittest.TestCase):
     """
     Automated Test Suite for PayPal Guardian Financial Safety Invariants.
-    Verifies that the $500.00 USD sacred safety floor cannot be breached under any spending scenario.
+    Verifies that the $500.00 USD sacred safety floor cannot be breached under any spending scenario
+    by running the production CashFlowSimulator engine.
     """
 
     def setUp(self):
@@ -14,19 +18,100 @@ class TestFinancialSafetyInvariants(unittest.TestCase):
         # Projected lowest cash dip prior to discretionary spend (e.g., after $1,200 rent + bills)
         self.lowest_projected_dip = 590.00
 
+        # Base financial context for simulation
+        self.profile = FinancialProfile(
+            user_id="guardian_user",
+            home_currency="USD",
+            current_available_balance=self.available_balance,
+            minimum_balance_to_keep=self.safety_floor,
+            financial_priorities=["safety_buffer"],
+            expense_categories_to_protect=["rent"],
+            expense_categories_user_is_willing_to_reduce=[],
+            expense_categories_user_is_willing_to_stop=[],
+            payment_methods_user_will_consider=["full_payment", "installments"],
+            max_installment_months=None,
+        )
+
+        # Reconciled commitments matching Guardian financial state
+        self.reconciled_events = [
+            ReconciledEvent(
+                event_id="evt_rent",
+                user_id="guardian_user",
+                description="Apartment Rent",
+                category="rent",
+                direction="debit",
+                settlement_date="2026-05-01",
+                amount_home=1200.00,
+                is_cash_flow=True,
+                is_recurring=True,
+                is_protected=True,
+                is_stoppable=False,
+                is_reducible=False,
+                minimum_allowed_amount=1200.00,
+                status="settled",
+            ),
+            ReconciledEvent(
+                event_id="evt_bills",
+                user_id="guardian_user",
+                description="Recurring Utilities & SaaS",
+                category="utilities",
+                direction="debit",
+                settlement_date="2026-05-01",
+                amount_home=60.00,
+                is_cash_flow=True,
+                is_recurring=True,
+                is_protected=False,
+                is_stoppable=False,
+                is_reducible=False,
+                minimum_allowed_amount=60.00,
+                status="settled",
+            ),
+        ]
+
     def evaluate_spend(self, amount: float):
-        """Standard invariant evaluation matching Guardian Copilot engine."""
+        """Standard invariant evaluation executing production CashFlowSimulator engine."""
         if amount <= 0:
             raise ValueError("Amount must be greater than zero")
 
-        lowest_dip_full = self.lowest_projected_dip - amount
-        safe_in_full = lowest_dip_full >= self.safety_floor
+        context = UserFinancialContext(
+            profile=self.profile,
+            request=EvaluationRequest(
+                request_id="req_eval",
+                user_id="guardian_user",
+                request_date="2026-05-01",
+                request_type="purchase",
+                requested_amount=amount,
+                desired_completion_date="2026-05-01",
+                allows_partial_payment=True,
+                request_text="Evaluate spend",
+            ),
+            historical_events=[],
+        )
 
-        installment_1 = amount / 4.0
-        lowest_dip_pay_in_4 = self.lowest_projected_dip - installment_1
-        pay_in_4_safe = lowest_dip_pay_in_4 >= self.safety_floor
+        # 1. Simulate Pay In Full
+        daily_bals_full = CashFlowSimulator.simulate_daily_balances(
+            context=context,
+            reconciled_events=self.reconciled_events,
+            start_date="2026-05-01",
+            days=30,
+            additional_debits={"2026-05-01": amount},
+        )
+        safe_in_full = CashFlowSimulator.is_plan_safe(daily_bals_full, self.safety_floor)
+        lowest_dip_full = min(daily_bals_full.values())
 
-        # Risk score calculation
+        # 2. Simulate Pay In 4 Installments (first installment due on settlement day)
+        installment_1 = round(amount / 4.0, 2)
+        daily_bals_pay_in_4 = CashFlowSimulator.simulate_daily_balances(
+            context=context,
+            reconciled_events=self.reconciled_events,
+            start_date="2026-05-01",
+            days=30,
+            additional_debits={"2026-05-01": installment_1},
+        )
+        pay_in_4_safe = CashFlowSimulator.is_plan_safe(daily_bals_pay_in_4, self.safety_floor)
+        lowest_dip_pay_in_4 = min(daily_bals_pay_in_4.values())
+
+        # Risk score calculation matching Guardian Copilot engine
         if safe_in_full:
             risk_score = 98
             recommendation = "PAY_IN_FULL"
