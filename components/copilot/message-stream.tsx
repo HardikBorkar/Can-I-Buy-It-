@@ -282,7 +282,7 @@ export function CopilotMessageStream({
               className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none leading-relaxed px-1 pt-1 pb-2"
             />
 
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-850/60">
+            <div className="flex items-center justify-between pt-2">
               {/* Left Attach Clip */}
               <button
                 type="button"

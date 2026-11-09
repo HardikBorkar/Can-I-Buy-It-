@@ -98,7 +98,7 @@ export function CopilotHero({
           />
 
           {/* Bottom Bar: Attach Clip on Left, Audio & Send on Right */}
-          <div className="flex items-center justify-between pt-2 border-t border-zinc-850/60">
+          <div className="flex items-center justify-between pt-2">
             {/* Left Attach Clip */}
             <button
               type="button"
