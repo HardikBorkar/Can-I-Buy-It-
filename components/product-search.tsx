@@ -164,7 +164,7 @@ export function ProductSearch({
       type="button"
       variant="outline"
       size="icon"
-      className={cn("size-10 shrink-0", visibility)}
+      className={cn("size-10 shrink-0 bg-[#0070BA] hover:bg-[#005ea6] dark:bg-[#0070BA] dark:hover:bg-[#005ea6] border-[#0070BA] dark:border-[#0070BA] text-white hover:text-white dark:text-white", visibility)}
       aria-label="Toggle filters"
       aria-expanded={showFilters}
       onClick={() => setShowFilters((value) => !value)}
