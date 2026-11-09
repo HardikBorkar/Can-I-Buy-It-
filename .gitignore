@@ -24,6 +24,7 @@ dist/
 # ==========================================
 .env
 .env.*
+!.env.example
 *.env
 *.env.local
 *.local
@@ -32,6 +33,15 @@ dist/
 *.cert
 *.crt
 *.pfx
+
+# ==========================================
+# Local Databases & Vector Stores
+# ==========================================
+*.db
+*.sqlite
+*.sqlite3
+chroma_db/
+guardian_copilot.db
 
 # ==========================================
 # Agent Skills & Customizations

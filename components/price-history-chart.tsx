@@ -29,8 +29,13 @@ export function PriceHistoryChart({
   className,
   ...props
 }: PriceHistoryChartProps) {
+  const toDate = (ts: any): Date => (ts instanceof Date ? ts : new Date(ts));
+
   const points = React.useMemo(
-    () => [...history].sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()),
+    () =>
+      [...history]
+        .map((p) => ({ ...p, timestamp: toDate(p.timestamp) }))
+        .sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime()),
     [history],
   );
 

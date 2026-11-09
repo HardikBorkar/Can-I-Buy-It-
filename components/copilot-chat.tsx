@@ -2,21 +2,16 @@
 
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
+import { usePathname } from "next/navigation";
 import {
   Sparkles,
-  MessageSquare,
   X,
   Send,
   ShieldCheck,
-  CreditCard,
-  TrendingUp,
-  AlertTriangle,
   CheckCircle2,
   Receipt,
-  DollarSign,
-  ChevronDown,
-  Minimize2,
   ExternalLink,
+  Maximize2,
 } from "lucide-react";
 
 interface ActionCardData {
@@ -46,11 +41,17 @@ interface Message {
 }
 
 export function CopilotChat() {
+  const pathname = usePathname();
+  const [mounted, setMounted] = useState(false);
   const [isOpen, setIsOpen] = useState(false);
   const [input, setInput] = useState("");
   const [isTyping, setIsTyping] = useState(false);
   const [orderFeedback, setOrderFeedback] = useState<string | null>(null);
   const [isProcessingOrder, setIsProcessingOrder] = useState(false);
+
+  useEffect(() => {
+    setMounted(true);
+  }, []);
 
   const [messages, setMessages] = useState<Message[]>([
     {
@@ -107,7 +108,7 @@ export function CopilotChat() {
       };
 
       setMessages((prev) => [...prev, assistantMsg]);
-    } catch (err) {
+    } catch {
       setMessages((prev) => [
         ...prev,
         {
@@ -152,18 +153,22 @@ export function CopilotChat() {
           window.open(order.approveUrl, "_blank", "noopener,noreferrer");
         }, 800);
       }
-    } catch (err: any) {
-      setOrderFeedback(`Order Error: ${err.message || "Failed to authorize"}`);
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : "Failed to authorize";
+      setOrderFeedback(`Order Error: ${message}`);
     } finally {
       setIsProcessingOrder(false);
     }
   };
+
+  if (!mounted || pathname === "/copilot") return null;
 
   return (
     <>
       {/* Floating Copilot Launcher Button */}
       {!isOpen && (
         <button
+          type="button"
           onClick={() => setIsOpen(true)}
           className="fixed bottom-6 right-6 z-50 flex items-center gap-2.5 px-4 py-3 rounded-2xl bg-gradient-to-r from-blue-600 via-indigo-600 to-teal-500 hover:from-blue-500 hover:to-teal-400 text-white font-bold text-xs shadow-2xl shadow-blue-500/40 hover:scale-105 active:scale-95 transition-all duration-200 border border-white/20 group"
         >
@@ -200,7 +205,16 @@ export function CopilotChat() {
             </div>
 
             <div className="flex items-center gap-1">
+              <Link
+                href="/copilot"
+                onClick={() => setIsOpen(false)}
+                className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
+                title="Open Dedicated Copilot Workspace"
+              >
+                <Maximize2 className="w-3.5 h-3.5" />
+              </Link>
               <button
+                type="button"
                 onClick={() => setIsOpen(false)}
                 className="p-1.5 rounded-lg hover:bg-slate-800 text-slate-400 hover:text-white transition"
                 title="Close Copilot"
@@ -224,7 +238,45 @@ export function CopilotChat() {
                       : "bg-slate-900 border border-slate-800 text-slate-200 rounded-bl-none"
                   }`}
                 >
-                  <div className="whitespace-pre-line">{msg.text}</div>
+                  <div className="space-y-1.5">
+                    {msg.text.split("\n").map((line, idx) => {
+                      if (!line.trim()) return <div key={idx} className="h-1" />;
+
+                      // Detect list items: lines starting with "* " or "• " or "- " or digits like "1. "
+                      const listMatch = line.match(/^(\s*)([\*\-•]|\d+\.)\s+(.*)$/);
+                      const displayLine = listMatch ? listMatch[3] : line;
+                      const isList = !!listMatch;
+
+                      // Format bold **text** into <strong>
+                      const renderInline = (text: string) => {
+                        const parts = text.split(/(\*\*.*?\*\*)/g);
+                        return parts.map((part, pIdx) => {
+                          if (part.startsWith("**") && part.endsWith("**")) {
+                            return (
+                              <strong key={pIdx} className="font-semibold text-white">
+                                {part.slice(2, -2)}
+                              </strong>
+                            );
+                          }
+                          return part;
+                        });
+                      };
+
+                      if (isList) {
+                        return (
+                          <p key={idx} className="leading-relaxed flex gap-1.5">
+                            <span className="text-blue-400 mt-0.5 shrink-0">•</span>
+                            <span>{renderInline(displayLine)}</span>
+                          </p>
+                        );
+                      }
+                      return (
+                        <p key={idx} className="leading-relaxed">
+                          {renderInline(displayLine)}
+                        </p>
+                      );
+                    })}
+                  </div>
 
                   {/* Render Action Card if present */}
                   {msg.actionCard && (
@@ -290,6 +342,7 @@ export function CopilotChat() {
 
                           {msg.actionCard.payIn4Safe && (
                             <button
+                              type="button"
                               disabled={isProcessingOrder}
                               onClick={() =>
                                 handleAuthorizeOrder(
@@ -308,6 +361,32 @@ export function CopilotChat() {
                               </span>
                             </button>
                           )}
+                        </div>
+                      )}
+
+                      {/* Invoice Prompt Card */}
+                      {msg.actionCard.type === "invoice_prompt" && (
+                        <div className="bg-slate-950/80 rounded-xl p-3 border border-indigo-900/50 space-y-2">
+                          <div className="flex items-center justify-between text-white font-semibold">
+                            <span className="flex items-center gap-1.5 text-indigo-300">
+                              <Receipt className="w-4 h-4" />
+                              PayPal Invoice (REST v2)
+                            </span>
+                            <span className="font-mono text-emerald-400 font-bold">
+                              ${msg.actionCard.defaultAmount?.toFixed(2)}
+                            </span>
+                          </div>
+                          <div className="text-[11px] text-slate-300 space-y-1 bg-slate-900/80 p-2 rounded-lg border border-slate-800">
+                            <div><span className="text-slate-400">Recipient:</span> {msg.actionCard.defaultRecipient}</div>
+                            <div><span className="text-slate-400">Service:</span> {msg.actionCard.defaultDescription}</div>
+                          </div>
+                          <Link
+                            href="/dashboard"
+                            className="mt-2 flex items-center justify-center gap-1.5 w-full py-2 rounded-lg bg-indigo-600 hover:bg-indigo-500 text-white font-bold text-[11px] shadow-md transition"
+                          >
+                            <ExternalLink className="w-3.5 h-3.5" />
+                            <span>Open Invoicing Console on Dashboard →</span>
+                          </Link>
                         </div>
                       )}
                     </div>
@@ -342,24 +421,28 @@ export function CopilotChat() {
           {/* Quick Suggestion Chips */}
           <div className="px-3 py-2 bg-slate-900/60 border-t border-slate-800/80 flex items-center gap-1.5 overflow-x-auto scrollbar-none text-[11px]">
             <button
+              type="button"
               onClick={() => handleSend("What is my PayPal balance and safe discretionary spend?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               💳 Balance
             </button>
             <button
+              type="button"
               onClick={() => handleSend("Can I afford to buy an $850 Sony Camera?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               📸 Afford $850?
             </button>
             <button
+              type="button"
               onClick={() => handleSend("What recurring bills are coming up this month?")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >
               📅 Bills
             </button>
             <button
+              type="button"
               onClick={() => handleSend("Draft a PayPal invoice for $450 to my client")}
               className="px-2.5 py-1 rounded-full bg-slate-800 hover:bg-slate-700 text-slate-300 shrink-0 border border-slate-700/60 transition flex items-center gap-1"
             >

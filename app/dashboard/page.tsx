@@ -272,13 +272,24 @@ function DashboardContent() {
       {/* Top Header */}
       <header className="border-b border-slate-800 bg-slate-900/80 backdrop-blur sticky top-0 z-40">
         <div className="max-w-7xl mx-auto px-4 py-3 flex flex-wrap items-center justify-between gap-4">
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-2.5">
             <Link
               href="/"
               className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition"
             >
               <ArrowLeft className="w-3.5 h-3.5" />
               <span>Back to Storefront</span>
+            </Link>
+
+            <Link
+              href="/copilot"
+              className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-gradient-to-r from-violet-600/30 to-indigo-600/30 hover:from-violet-600/50 hover:to-indigo-600/50 border border-violet-500/40 text-xs font-semibold text-violet-200 transition shadow-sm group"
+            >
+              <Sparkles className="w-3.5 h-3.5 text-violet-300 group-hover:rotate-12 transition-transform" />
+              <span>Guardian Copilot</span>
+              <span className="px-1.5 py-0.2 rounded-full bg-violet-500/20 text-violet-300 text-[10px] font-semibold border border-violet-500/30">
+                AI
+              </span>
             </Link>
 
             <div className="h-4 w-px bg-slate-800 hidden sm:block" />
@@ -766,7 +777,7 @@ function DashboardContent() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Invoice #{invoiceResult.number} Successfully Dispatched!
+                      Invoice #{invoiceResult.invoiceNumber || invoiceResult.invoiceId} Successfully Dispatched!
                     </span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
                       {invoiceResult.status}

@@ -118,7 +118,7 @@ export function ProductCard({
 
   const media = (
     <div
-      className="relative aspect-square overflow-hidden rounded-md bg-muted"
+      className="relative aspect-square overflow-hidden rounded-md bg-[#0a1628]"
       onMouseEnter={() => {
         setImageHovered(true);
         window.dispatchEvent(
@@ -201,7 +201,7 @@ export function ProductCard({
           type="button"
           aria-label={product.title}
           onClick={() => onSelect?.(product)}
-          className="flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-muted text-muted-foreground ring-1 ring-border transition hover:ring-ring focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+          className="flex size-5 cursor-pointer items-center justify-center overflow-hidden rounded-full bg-[#0a1628] text-slate-400 ring-1 ring-slate-700 transition hover:ring-slate-400 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-400"
         >
           {fallbackThumb ? (
             <img src={fallbackThumb} alt="" className="size-full object-cover" />

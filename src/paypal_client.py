@@ -339,6 +339,35 @@ class PayPalClient:
             details=resp.json() if resp.content else {},
         )
 
+    def capture_order(self, order_id: str) -> Dict[str, Any]:
+        """
+        Capture payment for an approved PayPal v2 order.
+        Endpoint: POST /v2/checkout/orders/{id}/capture
+        """
+        if not self.has_credentials and self.mock_fallback:
+            return {
+                "order_id": order_id,
+                "status": "COMPLETED",
+                "capture_id": f"MOCK_CAP_{uuid.uuid4().hex[:10].upper()}",
+                "is_mock": True,
+            }
+        url = f"{self.base_url}/v2/checkout/orders/{order_id}/capture"
+        resp = requests.post(url, headers=self._headers(), timeout=20)
+        if resp.status_code in (200, 201):
+            return resp.json()
+        if self.mock_fallback:
+            return {
+                "order_id": order_id,
+                "status": "COMPLETED",
+                "capture_id": f"MOCK_CAP_{uuid.uuid4().hex[:10].upper()}",
+                "is_mock": True,
+            }
+        raise PayPalAPIError(
+            f"Failed to capture order [{resp.status_code}]: {resp.text}",
+            status_code=resp.status_code,
+            debug_id=resp.headers.get("PayPal-Debug-Id", ""),
+        )
+
     # =========================================================================
     # 4. INVOICING API (v2) - BILL CREATION & DISPATCH
     # =========================================================================

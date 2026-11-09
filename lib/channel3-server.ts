@@ -453,20 +453,42 @@ export async function getChannel3Product(
   return found;
 }
 
+// In-memory 15-minute TTL cache for similar products to eliminate 10s latency
+const similarProductsCache = new Map<string, { data: Product[]; expiresAt: number }>();
+
 export async function getChannel3Similar(productId: string, limit: number = 6): Promise<Product[]> {
+  const cacheKey = `${productId}_${limit}`;
+  const cached = similarProductsCache.get(cacheKey);
+  if (cached && Date.now() < cached.expiresAt) {
+    return cached.data;
+  }
+
   if (channel3Client) {
     try {
-      const res = await channel3Client.products.findSimilar({
+      // Race findSimilar with a 3.5s timeout to guarantee instant UI rendering
+      const timeoutPromise = new Promise<never>((_, reject) =>
+        setTimeout(() => reject(new Error("Channel3 findSimilar timed out")), 3500)
+      );
+
+      const fetchPromise = channel3Client.products.findSimilar({
         product_id: productId,
         limit,
       });
-      return (res.data as Product[]) || (res as any).items || [];
+
+      const res = await Promise.race([fetchPromise, timeoutPromise]);
+      const data = (res.data as Product[]) || (res as any).items || [];
+      if (data.length > 0) {
+        similarProductsCache.set(cacheKey, { data, expiresAt: Date.now() + 15 * 60 * 1000 });
+        return data;
+      }
     } catch (err) {
-      console.warn("Live Channel3 findSimilar failed, fallback to mock:", err);
+      console.warn("Live Channel3 findSimilar timed out or failed, fallback to mock:", err);
     }
   }
 
-  return MOCK_PRODUCTS.filter((p) => p.id !== productId).slice(0, limit);
+  const fallback = MOCK_PRODUCTS.filter((p) => p.id !== productId).slice(0, limit);
+  similarProductsCache.set(cacheKey, { data: fallback, expiresAt: Date.now() + 15 * 60 * 1000 });
+  return fallback;
 }
 
 export async function getChannel3PriceHistory(productId: string, days: number = 90): Promise<PriceHistoryResponse> {
