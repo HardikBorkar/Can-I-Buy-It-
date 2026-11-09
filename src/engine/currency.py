@@ -6,8 +6,11 @@ USD-bridge chaining implemented as our own defensive design decisions.
 
 from collections import defaultdict, deque
 from pathlib import Path
-from typing import Dict, List, Optional, Tuple, Union
-import pandas as pd
+from typing import Any, Dict, List, Optional, Tuple, Union
+try:
+    import pandas as pd
+except ImportError:
+    pd = None
 
 
 class CurrencyGraph:
@@ -23,7 +26,7 @@ class CurrencyGraph:
 
     BRIDGE_CURRENCY = "USD"
 
-    def __init__(self, exchange_rates_source: Union[str, Path, pd.DataFrame]):
+    def __init__(self, exchange_rates_source: Union[str, Path, Any]):
         """
         Initialize the currency graph from exchange_rates.csv or a DataFrame.
         """

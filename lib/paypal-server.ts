@@ -19,7 +19,6 @@ const hasLiveCredentials = Boolean(
 
 // Persist token cache in globalThis across worker re-evaluations, serverless warm starts, and dev reloads
 declare global {
-  // eslint-disable-next-line no-var
   var __paypalTokenCache: Record<string, { token: string | null; expiresAt: number }> | undefined;
 }
 

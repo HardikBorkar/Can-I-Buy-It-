@@ -216,18 +216,8 @@ class ResilientPayPalClient:
             async with httpx.AsyncClient(timeout=4.5) as client:
                 resp = await client.post(f"{self.base_url}/v2/checkout/orders", json=payload, headers=headers)
                 if resp.status_code not in (200, 201):
-                    logger.warning("PayPal Create Order returned HTTP %d. Using fallback simulation.", resp.status_code)
-                    order_id = f"SANDBOX-ORD-{uuid.uuid4().hex[:8].upper()}"
-                    return {
-                        "order_id": order_id,
-                        "status": "CREATED",
-                        "amount": amount,
-                        "currency": currency,
-                        "reference_id": ref_id,
-                        "idempotency_key": idempotency_key,
-                        "approve_url": f"https://www.sandbox.paypal.com/checkoutnow?token={order_id}",
-                        "is_mock": True,
-                    }
+                    logger.warning("PayPal Create Order returned HTTP %d. Inspecting response.", resp.status_code)
+                    self._handle_error_response(resp)
 
                 data = resp.json()
                 approve_url = next(
@@ -246,6 +236,8 @@ class ResilientPayPalClient:
                     "is_mock": False,
                     "raw": data,
                 }
+        except PayPalClientException:
+            raise
         except (httpx.RequestError, Exception) as exc:
             logger.warning("PayPal Create Order failed or timed out: %s. Using resilient sandbox order.", exc)
             order_id = f"SANDBOX-ORD-{uuid.uuid4().hex[:8].upper()}"
@@ -288,14 +280,8 @@ class ResilientPayPalClient:
             async with httpx.AsyncClient(timeout=4.5) as client:
                 resp = await client.post(f"{self.base_url}/v2/checkout/orders/{order_id}/capture", headers=headers)
                 if resp.status_code not in (200, 201):
-                    logger.warning("Capture order HTTP %d, resolving as completed in sandbox.", resp.status_code)
-                    return {
-                        "capture_id": f"MOCK-CAP-{uuid.uuid4().hex[:8].upper()}",
-                        "order_id": order_id,
-                        "status": "COMPLETED",
-                        "idempotency_key": idempotency_key,
-                        "is_mock": True,
-                    }
+                    logger.warning("Capture order HTTP %d failed. Inspecting response.", resp.status_code)
+                    self._handle_error_response(resp)
 
                 data = resp.json()
                 return {
@@ -306,8 +292,10 @@ class ResilientPayPalClient:
                     "is_mock": False,
                     "raw": data,
                 }
+        except PayPalClientException:
+            raise
         except (httpx.RequestError, Exception) as exc:
-            logger.warning("Capture order failed/timed out: %s. Resolving as completed in sandbox.", exc)
+            logger.warning("Capture order failed or timed out: %s. Using sandbox fallback.", exc)
             return {
                 "capture_id": f"MOCK-CAP-{uuid.uuid4().hex[:8].upper()}",
                 "order_id": order_id,
@@ -383,17 +371,8 @@ class ResilientPayPalClient:
                 # Step A: Draft invoice
                 draft_resp = await client.post(f"{self.base_url}/v2/invoicing/invoices", json=payload, headers=headers)
                 if draft_resp.status_code not in (200, 201):
-                    logger.warning("PayPal Invoicing API returned %d. Using fallback simulation.", draft_resp.status_code)
-                    invoice_id = f"MOCK-INV-{uuid.uuid4().hex[:8].upper()}"
-                    return {
-                        "invoice_id": invoice_id,
-                        "invoice_number": payload["detail"]["invoice_number"],
-                        "status": "SENT",
-                        "recipient": recipient_email,
-                        "idempotency_key": idempotency_key,
-                        "payment_url": f"https://www.sandbox.paypal.com/invoice/p/#{invoice_id}",
-                        "is_mock": True,
-                    }
+                    logger.warning("PayPal Invoicing API returned %d. Inspecting response.", draft_resp.status_code)
+                    self._handle_error_response(draft_resp)
 
                 draft_data = draft_resp.json()
                 invoice_id = draft_data.get("id") or draft_data.get("href", "").split("/")[-1]
@@ -408,6 +387,9 @@ class ResilientPayPalClient:
                         "PayPal-Request-Id": send_key,
                     },
                 )
+                if send_resp.status_code not in (200, 202):
+                    logger.warning("PayPal Send Invoice API returned %d. Inspecting response.", send_resp.status_code)
+                    self._handle_error_response(send_resp)
 
                 return {
                     "invoice_id": invoice_id,
@@ -418,6 +400,8 @@ class ResilientPayPalClient:
                     "payment_url": f"https://www.sandbox.paypal.com/invoice/p/#{invoice_id}",
                     "is_mock": False,
                 }
+        except PayPalClientException:
+            raise
         except (httpx.RequestError, Exception) as exc:
             logger.warning("PayPal invoice creation timed out/failed: %s. Using simulated invoice.", exc)
             invoice_id = f"MOCK-INV-{uuid.uuid4().hex[:8].upper()}"
@@ -435,59 +419,66 @@ class ResilientPayPalClient:
     # 5. TRANSACTION HISTORY
     # -------------------------------------------------------------------------
 
+    def _get_fallback_transactions(self) -> List[Dict[str, Any]]:
+        return [
+            {
+                "transaction_id": "TXN-849201-PP",
+                "date": "2026-11-06",
+                "description": "Electronics & Photography Gear",
+                "amount": -850.0,
+                "currency": "USD",
+                "status": "COMPLETED",
+            },
+            {
+                "transaction_id": "TXN-102941-PP",
+                "date": "2026-11-02",
+                "description": "Apartment Rent Auto-Debit",
+                "amount": -1200.0,
+                "currency": "USD",
+                "status": "COMPLETED",
+            },
+            {
+                "transaction_id": "TXN-391024-PP",
+                "date": "2026-10-25",
+                "description": "Payroll Direct Deposit",
+                "amount": 2200.0,
+                "currency": "USD",
+                "status": "COMPLETED",
+            },
+        ]
+
     async def get_transaction_history(self, days: int = 30) -> List[Dict[str, Any]]:
         """Fetches transactions from PayPal Reporting API or sandbox ledger."""
         if self._is_mock_mode():
-            return [
-                {
-                    "transaction_id": "TXN-849201-PP",
-                    "date": "2026-11-06",
-                    "description": "Sony Alpha a7 IV Camera",
-                    "amount": -850.0,
-                    "currency": "USD",
-                    "status": "COMPLETED",
-                },
-                {
-                    "transaction_id": "TXN-102941-PP",
-                    "date": "2026-11-02",
-                    "description": "Apartment Rent Auto-Debit",
-                    "amount": -1200.0,
-                    "currency": "USD",
-                    "status": "COMPLETED",
-                },
-                {
-                    "transaction_id": "TXN-391024-PP",
-                    "date": "2026-10-25",
-                    "description": "Payroll Direct Deposit",
-                    "amount": 2200.0,
-                    "currency": "USD",
-                    "status": "COMPLETED",
-                },
-            ]
+            return self._get_fallback_transactions()
 
         token = await self.get_access_token()
         headers = {"Authorization": f"Bearer {token}", "Content-Type": "application/json"}
-        async with httpx.AsyncClient(timeout=15.0) as client:
-            resp = await client.get(
-                f"{self.base_url}/v1/reporting/transactions?fields=all&page_size=20",
-                headers=headers,
-            )
-            if resp.status_code != 200:
-                logger.warning("Could not fetch reporting transactions, falling back to mock")
-                return await self.get_transaction_history(days=days)
+        try:
+            async with httpx.AsyncClient(timeout=15.0) as client:
+                resp = await client.get(
+                    f"{self.base_url}/v1/reporting/transactions?fields=all&page_size=20",
+                    headers=headers,
+                )
+                if resp.status_code != 200:
+                    logger.warning("Could not fetch reporting transactions (status %d), falling back to mock", resp.status_code)
+                    return self._get_fallback_transactions()
 
-            data = resp.json()
-            details = data.get("transaction_details", [])
-            return [
-                {
-                    "transaction_id": t.get("transaction_info", {}).get("transaction_id"),
-                    "date": t.get("transaction_info", {}).get("transaction_initiation_date"),
-                    "amount": float(t.get("transaction_info", {}).get("transaction_amount", {}).get("value", 0.0)),
-                    "currency": t.get("transaction_info", {}).get("transaction_amount", {}).get("currency_code", "USD"),
-                    "status": t.get("transaction_info", {}).get("transaction_status"),
-                }
-                for t in details
-            ]
+                data = resp.json()
+                details = data.get("transaction_details", [])
+                return [
+                    {
+                        "transaction_id": t.get("transaction_info", {}).get("transaction_id"),
+                        "date": t.get("transaction_info", {}).get("transaction_initiation_date"),
+                        "amount": float(t.get("transaction_info", {}).get("transaction_amount", {}).get("value", 0.0)),
+                        "currency": t.get("transaction_info", {}).get("transaction_amount", {}).get("currency_code", "USD"),
+                        "status": t.get("transaction_info", {}).get("transaction_status"),
+                    }
+                    for t in details
+                ]
+        except Exception as exc:
+            logger.warning("Failed to fetch reporting transactions (%s), falling back to mock", exc)
+            return self._get_fallback_transactions()
 
 
 paypal_client = ResilientPayPalClient()

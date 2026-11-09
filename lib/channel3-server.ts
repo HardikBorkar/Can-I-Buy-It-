@@ -416,7 +416,7 @@ export async function searchChannel3Products(input: {
   }
 
   return {
-    products: results.length > 0 ? results : MOCK_PRODUCTS.slice(0, limit),
+    products: results.slice(0, limit),
     nextPageToken: null,
   };
 }
@@ -453,14 +453,28 @@ export async function getChannel3Product(
   return found;
 }
 
-// In-memory 15-minute TTL cache for similar products to eliminate 10s latency
+// Bounded LRU cache (max 200 items, 15-minute TTL) for similar products to prevent memory exhaustion
+const MAX_SIMILAR_CACHE_ENTRIES = 200;
 const similarProductsCache = new Map<string, { data: Product[]; expiresAt: number }>();
+
+function setSimilarProductsCache(key: string, data: Product[], ttlMs: number = 15 * 60 * 1000): void {
+  if (similarProductsCache.size >= MAX_SIMILAR_CACHE_ENTRIES) {
+    const oldestKey = similarProductsCache.keys().next().value;
+    if (oldestKey) {
+      similarProductsCache.delete(oldestKey);
+    }
+  }
+  similarProductsCache.set(key, { data, expiresAt: Date.now() + ttlMs });
+}
 
 export async function getChannel3Similar(productId: string, limit: number = 6): Promise<Product[]> {
   const cacheKey = `${productId}_${limit}`;
   const cached = similarProductsCache.get(cacheKey);
-  if (cached && Date.now() < cached.expiresAt) {
-    return cached.data;
+  if (cached) {
+    if (Date.now() < cached.expiresAt) {
+      return cached.data;
+    }
+    similarProductsCache.delete(cacheKey);
   }
 
   if (channel3Client) {
@@ -478,7 +492,7 @@ export async function getChannel3Similar(productId: string, limit: number = 6): 
       const res = await Promise.race([fetchPromise, timeoutPromise]);
       const data = (res.data as Product[]) || (res as any).items || [];
       if (data.length > 0) {
-        similarProductsCache.set(cacheKey, { data, expiresAt: Date.now() + 15 * 60 * 1000 });
+        setSimilarProductsCache(cacheKey, data);
         return data;
       }
     } catch (err) {
@@ -487,7 +501,7 @@ export async function getChannel3Similar(productId: string, limit: number = 6): 
   }
 
   const fallback = MOCK_PRODUCTS.filter((p) => p.id !== productId).slice(0, limit);
-  similarProductsCache.set(cacheKey, { data: fallback, expiresAt: Date.now() + 15 * 60 * 1000 });
+  setSimilarProductsCache(cacheKey, fallback);
   return fallback;
 }
 
