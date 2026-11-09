@@ -1,7 +1,0 @@
-pandas
-google-genai
-pydantic
-pillow
-tenacity
-pytest
-python-dotenv
