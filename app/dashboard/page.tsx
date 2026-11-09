@@ -232,7 +232,15 @@ function DashboardContent() {
         throw new Error(invData.error || "Failed to create invoice");
       }
 
-      setInvoiceResult(invData);
+      setInvoiceResult({
+        id: invData.invoiceId || invData.id,
+        number: invData.invoiceNumber || invData.number || invData.invoiceId || "INV-001",
+        status: invData.status || "SENT",
+        paymentUrl: invData.paymentUrl,
+        amount: invData.amount,
+        recipient: invData.recipient,
+        isMock: Boolean(invData.isMock),
+      });
 
       // Append to the AG Grid transactions stream
       if (data) {
@@ -777,7 +785,7 @@ function DashboardContent() {
                   <div className="flex items-center justify-between">
                     <span className="text-xs font-bold text-indigo-300 flex items-center gap-1.5">
                       <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                      Invoice #{invoiceResult.invoiceNumber || invoiceResult.invoiceId} Successfully Dispatched!
+                      Invoice #{invoiceResult.number} Successfully Dispatched!
                     </span>
                     <span className="text-[11px] px-2 py-0.5 rounded-full bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 font-mono">
                       {invoiceResult.status}
@@ -800,6 +808,14 @@ function DashboardContent() {
                       <ExternalLink className="w-3 h-3" />
                     </a>
                   </div>
+
+                  {invoiceResult.isMock && (
+                    <div className="mt-2 text-[11px] text-amber-300 bg-amber-950/40 border border-amber-500/40 rounded-lg p-2.5 flex items-start gap-2 leading-relaxed">
+                      <span>
+                        ⚠️ <strong>Simulated Sandbox Invoice:</strong> Your PayPal REST App currently lacks the <strong>&quot;Invoicing&quot;</strong> permission. Enable the <strong>Invoicing</strong> checkbox in your <a href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-200">PayPal Developer Portal</a> to have invoices sync directly to your <code className="text-amber-200">sandbox.paypal.com</code> account.
+                      </span>
+                    </div>
+                  )}
                 </div>
               )}
             </div>

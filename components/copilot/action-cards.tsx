@@ -49,6 +49,7 @@ export function ActionCardRenderer({
     invoiceNumber?: string;
     status: string;
     paymentUrl?: string;
+    isMock?: boolean;
   } | null>(null);
   const [showInvoiceVerifyHelp, setShowInvoiceVerifyHelp] = useState(false);
 
@@ -325,6 +326,7 @@ export function ActionCardRenderer({
                   invoiceNumber: resData.invoiceNumber || "INV-001",
                   status: resData.status || "SENT",
                   paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                  isMock: Boolean(resData.isMock),
                 });
                 if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
               } catch (err) {
@@ -333,6 +335,7 @@ export function ActionCardRenderer({
                   invoiceId: data.invoiceId,
                   status: "SENT",
                   paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                  isMock: true,
                 });
               } finally {
                 setIsSendingInvoice(false);
@@ -367,6 +370,12 @@ export function ActionCardRenderer({
                 <span>View Invoice on PayPal Sandbox</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+
+              {sentInvoice.isMock && (
+                <div className="p-2 rounded bg-amber-950/40 border border-amber-500/40 text-[10px] text-amber-300 leading-relaxed font-sans">
+                  ⚠️ <strong>Simulated Sandbox Invoice:</strong> Your PayPal REST App lacks the <strong>&quot;Invoicing&quot;</strong> permission. Enable the <strong>Invoicing</strong> checkbox in your <a href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-200">Developer Portal</a> to have invoices appear in your live sandbox account.
+                </div>
+              )}
             </div>
 
             {/* How to verify guidance */}
