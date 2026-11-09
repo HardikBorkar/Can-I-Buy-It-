@@ -2,7 +2,7 @@
 
 import React, { type ReactNode } from "react";
 import Link from "next/link";
-import { motion, useReducedMotion } from "motion/react";
+import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
 import { BackgroundCubesGrid } from "@/components/ui/background-cubes-grid";
 

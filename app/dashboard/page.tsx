@@ -66,8 +66,10 @@ function DashboardContent() {
   const [invNote, setInvNote] = useState("Billed via PayPal Guardian Agent");
   const [isSendingInvoice, setIsSendingInvoice] = useState(false);
   const [invoiceResult, setInvoiceResult] = useState<{
-    id: string;
-    number: string;
+    invoiceId?: string;
+    invoiceNumber?: string;
+    id?: string;
+    number?: string;
     status: string;
     paymentUrl: string;
     amount: number;
