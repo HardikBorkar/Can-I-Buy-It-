@@ -223,9 +223,9 @@ export default function StorefrontPage() {
               <span className="hidden sm:inline">Home</span>
             </Link>
 
-            <div className="w-9 h-9 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center shadow-md overflow-hidden p-1">
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-[#0070BA]/70 flex items-center justify-center shadow-md shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/clean/paypal.png" alt="PayPal" className="w-full h-full object-contain" />
+              <img src="/logos/clean/paypal-square.png" alt="PayPal" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
