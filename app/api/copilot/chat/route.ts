@@ -349,8 +349,23 @@ Then provide your concise response instructing the user to click the Authorize b
       const emailMatch = message.match(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/);
       if (emailMatch) recipientEmail = emailMatch[1];
 
-      const dollarMatch = lower.match(/\$(\d+(?:\.\d{1,2})?)/);
+      const dollarMatch =
+        message.match(/\$(\d+(?:\.\d{1,2})?)/) ||
+        lower.match(/(?:for|amount:?)\s*\$?(\d+(?:\.\d{1,2})?)\s*(?:usd|dollars)?/);
       if (dollarMatch) amount = parseFloat(dollarMatch[1]);
+
+      // Extract custom item description if specified (e.g. "... for UI Consulting", "... for Full-Stack AI Development")
+      const afterTo = message.match(/to\s+[^\s]+?\s+for\s+(.+)$/i);
+      if (afterTo && afterTo[1]) {
+        const cleaned = afterTo[1].replace(/\$\d+(?:\.\d{1,2})?/, "").trim();
+        if (cleaned.length > 2) description = cleaned;
+      } else {
+        const forMatch = message.match(/for\s+([^$@\n]+?)(?:\s+to|\s+\$|$)/i);
+        if (forMatch && forMatch[1]) {
+          const cleaned = forMatch[1].trim();
+          if (cleaned.length > 2 && !cleaned.match(/^\d+/)) description = cleaned;
+        }
+      }
 
       const userPrompt = `User wants to draft an invoice: "${message}".
 Details: Recipient: ${recipientEmail}, Amount: $${amount.toFixed(2)} USD, Description: ${description}.
