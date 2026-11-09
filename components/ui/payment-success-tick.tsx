@@ -153,11 +153,11 @@ export function PaymentSuccessTick({
             compact ? "w-20 h-20" : "w-28 h-28"
           }`}
           initial={{ scale: 0, rotate: -25 }}
-          animate={{ scale: [0, 1.15, 1], rotate: 0 }}
+          animate={{ scale: 1, rotate: 0 }}
           transition={{
             type: "spring",
-            stiffness: 450,
-            damping: 20,
+            stiffness: 400,
+            damping: 18,
             delay: 0.1,
           }}
         >
