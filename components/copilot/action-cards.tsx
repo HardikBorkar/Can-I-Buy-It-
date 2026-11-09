@@ -23,6 +23,14 @@ import {
 } from "lucide-react";
 import { ActionCardPayload } from "./types";
 import { PaymentSuccessTick } from "@/components/ui/payment-success-tick";
+import {
+  orderFSMReducer,
+  createInitialOrderFSM,
+  getOrderFSMAgentView,
+  invoiceFSMReducer,
+  createInitialInvoiceFSM,
+  getInvoiceFSMAgentView,
+} from "@/lib/state-machines";
 
 interface ActionCardProps {
   card: ActionCardPayload;
@@ -38,20 +46,28 @@ export function ActionCardRenderer({
   onSendInvoice,
 }: ActionCardProps) {
   const [showPayload, setShowPayload] = useState(false);
-  const [orderState, setOrderState] = useState<"pending" | "authorized" | "rejected">(
-    card.event === "APPROVAL_REQUIRED" ? "pending" : "authorized"
-  );
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captureSuccess, setCaptureSuccess] = useState(false);
-  const [isSendingInvoice, setIsSendingInvoice] = useState(false);
-  const [sentInvoice, setSentInvoice] = useState<{
-    invoiceId: string;
-    invoiceNumber?: string;
-    status: string;
-    paymentUrl?: string;
-    isMock?: boolean;
-  } | null>(null);
   const [showInvoiceVerifyHelp, setShowInvoiceVerifyHelp] = useState(false);
+
+  // Strongly-Typed Finite State Machines for Order & Invoice lifecycles
+  const orderData = card.orderCardData;
+  const [orderFSM, dispatchOrderFSM] = React.useReducer(
+    orderFSMReducer,
+    createInitialOrderFSM(
+      orderData?.orderId || "SANDBOX-ORD-9281",
+      card.event === "APPROVAL_REQUIRED" ? "pending" : "authorized",
+      orderData?.approveUrl
+    )
+  );
+
+  const invoiceData = card.invoicePreviewData;
+  const [invoiceFSM, dispatchInvoiceFSM] = React.useReducer(
+    invoiceFSMReducer,
+    createInitialInvoiceFSM(
+      invoiceData?.invoiceId || "INV2-SANDBOX-7821",
+      invoiceData?.recipientEmail || "client-procurement@enterprise.io",
+      invoiceData?.total || 1250.0
+    )
+  );
 
   // =========================================================================
   // 1. ORDER CARD (HITL GUARDRAIL PROTECTED)
@@ -126,15 +142,15 @@ export function ActionCardRenderer({
           </span>
         </div>
 
-        {/* Action Buttons: Authorize & Pay or Reject */}
-        {orderState === "pending" ? (
+        {/* Machine-Driven Lifecycle Rendering (FSM) */}
+        {orderFSM.status === "PENDING_APPROVAL" && (
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-2">
               <button
                 type="button"
                 onClick={() => {
                   window.open(approveLink, "_blank", "noopener,noreferrer");
-                  setOrderState("authorized");
+                  dispatchOrderFSM({ type: "AUTHORIZE_AND_OPEN", approveUrl: approveLink });
                   if (onAuthorizeOrder) onAuthorizeOrder(data.orderId, data.price);
                 }}
                 className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-900/20 transition flex items-center justify-center gap-1.5 active:scale-95"
@@ -146,7 +162,7 @@ export function ActionCardRenderer({
               <button
                 type="button"
                 onClick={() => {
-                  setOrderState("rejected");
+                  dispatchOrderFSM({ type: "REJECT", reason: "Payment rejected by user. Buffer floor preserved." });
                   if (onRejectOrder) onRejectOrder(data.orderId);
                 }}
                 className="h-9 px-3 rounded-lg bg-zinc-900 hover:bg-rose-950/40 border border-zinc-850 hover:border-rose-500/40 text-zinc-300 hover:text-rose-300 text-xs font-medium transition flex items-center gap-1.5 active:scale-95"
@@ -159,61 +175,114 @@ export function ActionCardRenderer({
               Redirects to official sandbox.paypal.com checkout login
             </p>
           </div>
-        ) : orderState === "authorized" ? (
+        )}
+
+        {(orderFSM.status === "CHECKOUT_OPENED" || orderFSM.status === "CAPTURING") && (
           <div className="pt-1">
-            {captureSuccess ? (
-              <PaymentSuccessTick
-                amount={data.price}
-                currency={data.currency || "USD"}
-                item={data.item}
-                recipient={data.merchant}
-                orderId={data.orderId}
-                statusLabel="Payment Settled Successfully"
-                autoPlaySound={true}
-                compact={false}
-              />
-            ) : (
-              <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40 text-emerald-300 text-xs space-y-2.5">
-                <div className="flex items-center gap-2 justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="font-semibold text-zinc-100">PayPal Checkout Tab Opened</span>
-                </div>
-                <p className="text-[11px] text-zinc-400 text-center leading-relaxed">
-                  Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:
-                </p>
-                <button
-                  type="button"
-                  disabled={isCapturing}
-                  onClick={async () => {
-                    setIsCapturing(true);
-                    try {
-                      const res = await fetch("/api/paypal/capture", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ orderId: data.orderId }),
-                      });
-                      if (res.ok) {
-                        setCaptureSuccess(true);
-                      } else {
-                        // Fallback for already captured or mock orders
-                        setCaptureSuccess(true);
-                      }
-                    } catch (e) {
-                      console.error("Capture call error:", e);
-                      setCaptureSuccess(true);
-                    } finally {
-                      setIsCapturing(false);
-                    }
-                  }}
-                  className="w-full h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isCapturing ? "Capturing on PayPal Sandbox..." : "Verify & Settle Settlement"}</span>
-                </button>
+            <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40 text-emerald-300 text-xs space-y-2.5">
+              <div className="flex items-center gap-2 justify-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span className="font-semibold text-zinc-100">PayPal Checkout Tab Opened</span>
               </div>
-            )}
+              <p className="text-[11px] text-zinc-400 text-center leading-relaxed">
+                Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:
+              </p>
+              <button
+                type="button"
+                disabled={orderFSM.status === "CAPTURING"}
+                onClick={async () => {
+                  dispatchOrderFSM({ type: "START_CAPTURE" });
+                  try {
+                    const res = await fetch("/api/paypal/capture", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ orderId: data.orderId }),
+                    });
+                    if (res.ok) {
+                      const resData = await res.json().catch(() => ({}));
+                      dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.capture_id });
+                    } else {
+                      dispatchOrderFSM({
+                        type: "CAPTURE_FAILURE",
+                        error: `PayPal capture API returned HTTP ${res.status}.`,
+                      });
+                    }
+                  } catch (e: unknown) {
+                    dispatchOrderFSM({
+                      type: "CAPTURE_FAILURE",
+                      error: e instanceof Error ? e.message : "Network error contacting capture endpoint.",
+                    });
+                  }
+                }}
+                className="w-full h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95 disabled:opacity-60"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{orderFSM.status === "CAPTURING" ? "Capturing on PayPal Sandbox..." : "Verify & Settle Settlement"}</span>
+              </button>
+            </div>
           </div>
-        ) : (
+        )}
+
+        {orderFSM.status === "CAPTURE_ERROR" && (
+          <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/40 text-amber-300 text-xs space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span className="font-semibold text-zinc-100">Capture Incomplete</span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{orderFSM.errorMessage}</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  dispatchOrderFSM({ type: "RETRY_CAPTURE" });
+                  try {
+                    const res = await fetch("/api/paypal/capture", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ orderId: data.orderId }),
+                    });
+                    if (res.ok) {
+                      const resData = await res.json().catch(() => ({}));
+                      dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.capture_id });
+                    } else {
+                      dispatchOrderFSM({ type: "CAPTURE_FAILURE", error: `Capture retry returned HTTP ${res.status}.` });
+                    }
+                  } catch (e: unknown) {
+                    dispatchOrderFSM({
+                      type: "CAPTURE_FAILURE",
+                      error: e instanceof Error ? e.message : "Capture retry failed.",
+                    });
+                  }
+                }}
+                className="flex-1 h-8 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1"
+              >
+                <span>Retry Verification</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => dispatchOrderFSM({ type: "REJECT", reason: "User aborted after capture failure." })}
+                className="px-3 h-8 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs transition"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {orderFSM.status === "SETTLED" && (
+          <PaymentSuccessTick
+            amount={data.price}
+            currency={data.currency || "USD"}
+            item={data.item}
+            recipient={data.merchant}
+            orderId={data.orderId}
+            statusLabel="Payment Settled Successfully"
+            autoPlaySound={true}
+            compact={false}
+          />
+        )}
+
+        {orderFSM.status === "REJECTED" && (
           <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 justify-center">
             <XCircle className="w-4 h-4 text-rose-400" />
             <span className="font-medium">Payment Cancelled - Buffer Floor Preserved</span>
@@ -302,13 +371,13 @@ export function ActionCardRenderer({
           </span>
         </div>
 
-        {/* Send Invoice Action Button */}
-        {!sentInvoice ? (
+        {/* Machine-Driven Lifecycle Rendering (Invoice FSM) */}
+        {(invoiceFSM.status === "DRAFT_PREVIEW" || invoiceFSM.status === "DISPATCHING") && (
           <button
             type="button"
-            disabled={isSendingInvoice}
+            disabled={invoiceFSM.status === "DISPATCHING"}
             onClick={async () => {
-              setIsSendingInvoice(true);
+              dispatchInvoiceFSM({ type: "START_DISPATCH" });
               try {
                 const res = await fetch("/api/paypal/invoices", {
                   method: "POST",
@@ -320,33 +389,97 @@ export function ActionCardRenderer({
                     currency: data.currency || "USD",
                   }),
                 });
-                const resData = await res.json();
-                setSentInvoice({
-                  invoiceId: resData.invoiceId || data.invoiceId,
-                  invoiceNumber: resData.invoiceNumber || "INV-001",
-                  status: resData.status || "SENT",
-                  paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
-                  isMock: Boolean(resData.isMock),
+                if (res.ok) {
+                  const resData = await res.json();
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_SUCCESS",
+                    data: {
+                      invoiceId: resData.invoiceId || data.invoiceId,
+                      invoiceNumber: resData.invoiceNumber || "INV-001",
+                      status: resData.status || "SENT",
+                      paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                      isMock: Boolean(resData.isMock),
+                      dispatchedAt: Date.now(),
+                    },
+                  });
+                  if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
+                } else {
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_FAILURE",
+                    error: `PayPal Invoice API returned HTTP ${res.status}.`,
+                  });
+                }
+              } catch (err: unknown) {
+                dispatchInvoiceFSM({
+                  type: "DISPATCH_FAILURE",
+                  error: err instanceof Error ? err.message : "Failed to connect to PayPal invoicing API.",
                 });
-                if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
-              } catch (err) {
-                console.error("Failed to dispatch invoice:", err);
-                setSentInvoice({
-                  invoiceId: data.invoiceId,
-                  status: "SENT",
-                  paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
-                  isMock: true,
-                });
-              } finally {
-                setIsSendingInvoice(false);
               }
             }}
-            className="w-full h-9 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-sky-900/20 transition flex items-center justify-center gap-1.5 active:scale-95"
+            className="w-full h-9 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-sky-900/20 transition flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-60"
           >
             <Receipt className="w-3.5 h-3.5" />
-            <span>{isSendingInvoice ? "Dispatching via PayPal REST v2..." : "Send Invoice via PayPal"}</span>
+            <span>{invoiceFSM.status === "DISPATCHING" ? "Dispatching via PayPal REST v2..." : "Send Invoice via PayPal"}</span>
           </button>
-        ) : (
+        )}
+
+        {invoiceFSM.status === "DISPATCH_ERROR" && (
+          <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-500/40 text-rose-300 text-xs space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <span className="font-semibold text-zinc-100">Invoice Dispatch Failed</span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{invoiceFSM.errorMessage}</p>
+            <button
+              type="button"
+              onClick={async () => {
+                dispatchInvoiceFSM({ type: "RETRY_DISPATCH" });
+                try {
+                  const res = await fetch("/api/paypal/invoices", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      recipientEmail: data.recipientEmail,
+                      amount: data.total,
+                      description: data.items?.[0]?.name || "Enterprise Autonomous Agent Architecture",
+                      currency: data.currency || "USD",
+                    }),
+                  });
+                  if (res.ok) {
+                    const resData = await res.json();
+                    dispatchInvoiceFSM({
+                      type: "DISPATCH_SUCCESS",
+                      data: {
+                        invoiceId: resData.invoiceId || data.invoiceId,
+                        invoiceNumber: resData.invoiceNumber || "INV-001",
+                        status: resData.status || "SENT",
+                        paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                        isMock: Boolean(resData.isMock),
+                        dispatchedAt: Date.now(),
+                      },
+                    });
+                    if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
+                  } else {
+                    dispatchInvoiceFSM({
+                      type: "DISPATCH_FAILURE",
+                      error: `Retry returned HTTP ${res.status}.`,
+                    });
+                  }
+                } catch (e: unknown) {
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_FAILURE",
+                    error: e instanceof Error ? e.message : "Retry failed.",
+                  });
+                }
+              }}
+              className="w-full h-8 rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1"
+            >
+              <span>Retry Dispatch</span>
+            </button>
+          </div>
+        )}
+
+        {invoiceFSM.status === "DISPATCHED" && (
           <div className="space-y-2 pt-1">
             <div className="p-3 rounded-lg bg-sky-950/30 border border-sky-500/40 text-sky-300 text-xs space-y-2">
               <div className="flex items-center justify-between">
@@ -355,14 +488,14 @@ export function ActionCardRenderer({
                   <span className="font-semibold text-zinc-100">Invoice Dispatched</span>
                 </div>
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
-                  {sentInvoice.status}
+                  {invoiceFSM.data.status}
                 </span>
               </div>
               <div className="text-[11px] text-zinc-300 font-mono">
-                Invoice Reference: #{sentInvoice.invoiceId}
+                Invoice Reference: #{invoiceFSM.data.invoiceId}
               </div>
               <a
-                href={sentInvoice.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${sentInvoice.invoiceId}`}
+                href={invoiceFSM.data.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${invoiceFSM.data.invoiceId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-8 w-full rounded-md bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5"
@@ -371,7 +504,7 @@ export function ActionCardRenderer({
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
 
-              {sentInvoice.isMock && (
+              {invoiceFSM.data.isMock && (
                 <div className="p-2 rounded bg-amber-950/40 border border-amber-500/40 text-[10px] text-amber-300 leading-relaxed font-sans">
                   ⚠️ <strong>Simulated Sandbox Invoice:</strong> Your PayPal REST App lacks the <strong>&quot;Invoicing&quot;</strong> permission. Enable the <strong>Invoicing</strong> checkbox in your <a href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-200">Developer Portal</a> to have invoices appear in your live sandbox account.
                 </div>

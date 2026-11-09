@@ -5,8 +5,17 @@ from langgraph.graph.message import add_messages
 
 
 # =============================================================================
-# LANGGRAPH AGENT STATE TYPEDDICT
+# LANGGRAPH AGENT STATE TYPEDDICT & EXPLICIT FSM LIFECYCLE
 # =============================================================================
+
+AgentActionStatus = Literal[
+    "idle",
+    "awaiting_approval",
+    "approved",
+    "rejected",
+    "executed",
+    "failed",
+]
 
 class AgentState(TypedDict):
     """
@@ -20,7 +29,7 @@ class AgentState(TypedDict):
     scraped_data: Optional[Dict[str, Any]]
     retrieved_context: List[str]
     pending_action: Optional[Dict[str, Any]]  # Holds payload when HITL gate triggers
-    action_status: str  # "idle" | "awaiting_approval" | "approved" | "rejected" | "executed"
+    action_status: AgentActionStatus  # Explicit Finite State Machine lifecycle
     final_response: Optional[str]
 
 
