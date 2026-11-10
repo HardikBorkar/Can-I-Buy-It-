@@ -20,9 +20,12 @@ import {
   ArrowRight,
   ShoppingBag,
   Sparkles,
+  Lock,
+  Zap,
 } from "lucide-react";
 import { ActionCardPayload } from "./types";
 import { PaymentSuccessTick } from "@/components/ui/payment-success-tick";
+import { BentoAnalyticsCard } from "./bento-analytics";
 import {
   orderFSMReducer,
   createInitialOrderFSM,
@@ -47,6 +50,7 @@ export function ActionCardRenderer({
 }: ActionCardProps) {
   const [showPayload, setShowPayload] = useState(false);
   const [showInvoiceVerifyHelp, setShowInvoiceVerifyHelp] = useState(false);
+  const [securityMode, setSecurityMode] = useState<"paypal_password" | "agent_delegated">("paypal_password");
 
   // Strongly-Typed Finite State Machines for Order & Invoice lifecycles
   const orderData = card.orderCardData;
@@ -70,7 +74,7 @@ export function ActionCardRenderer({
   );
 
   // =========================================================================
-  // 1. ORDER CARD (HITL GUARDRAIL PROTECTED)
+  // 1. ORDER CARD (HITL & AUTONOMOUS AGENT SECURITY PROTECTED)
   // =========================================================================
   if (card.type === "order_card" || card.orderCardData) {
     const data = card.orderCardData || {
@@ -88,8 +92,8 @@ export function ActionCardRenderer({
       `https://www.sandbox.paypal.com/checkoutnow?token=${data.orderId}`;
 
     return (
-      <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-xl bg-[#0B0B0E] border border-zinc-800 shadow-xl space-y-3.5 transition-all duration-200">
-        {/* Header & Glowing Pill Badge */}
+      <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-2xl bg-[#0D0D12] border border-zinc-800 shadow-2xl space-y-3.5 transition-all duration-200">
+        {/* Header & Status Badge */}
         <div className="flex items-center justify-between border-b border-zinc-850 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
@@ -111,16 +115,64 @@ export function ActionCardRenderer({
           </div>
         </div>
 
-        {/* Human-in-the-Loop Security Notice */}
-        <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/30 text-[11px] text-amber-300 space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold text-amber-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>Human-in-the-Loop Security Guardrail</span>
+        {/* Security Posture Option Switcher */}
+        {orderFSM.status === "PENDING_APPROVAL" && (
+          <div className="space-y-2">
+            <div className="text-[10.5px] font-medium text-zinc-400 flex items-center justify-between">
+              <span>Security &amp; Authorization Mode:</span>
+              <span className="text-[9.5px] font-mono text-zinc-500">Dual Posture</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-zinc-950 border border-zinc-850">
+              <button
+                type="button"
+                onClick={() => setSecurityMode("paypal_password")}
+                className={`py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                  securityMode === "paypal_password"
+                    ? "bg-zinc-800 text-amber-300 shadow-sm border border-amber-500/30"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">PayPal Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSecurityMode("agent_delegated")}
+                className={`py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                  securityMode === "agent_delegated"
+                    ? "bg-zinc-800 text-teal-300 shadow-sm border border-teal-500/30"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <span className="truncate">Agent Settle</span>
+              </button>
+            </div>
+
+            {/* Contextual Security Explanation */}
+            {securityMode === "paypal_password" ? (
+              <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px] text-amber-300/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-amber-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Zero-Trust: PayPal Password Required</span>
+                </div>
+                <p className="leading-relaxed text-amber-300/75 text-[10.5px]">
+                  Guardian Copilot will never debit funds without your explicit interactive authentication on the official PayPal Sandbox login.
+                </p>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-teal-950/20 border border-teal-500/25 text-[11px] text-teal-300/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-teal-200">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span>Delegated Agent Autonomous Settle</span>
+                </div>
+                <p className="leading-relaxed text-teal-300/75 text-[10.5px]">
+                  Guardian Agent executes and signs the settlement autonomously via PayPal REST v2 Sandbox. Protected by your sacred $500.00 cash reserve buffer.
+                </p>
+              </div>
+            )}
           </div>
-          <p className="leading-relaxed text-amber-300/80">
-            To prevent unauthorized spending, Guardian Copilot will never debit funds automatically. You must authenticate via the official PayPal Sandbox Login to authorize this debit.
-          </p>
-        </div>
+        )}
 
         {/* Order Details Grid */}
         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -146,23 +198,71 @@ export function ActionCardRenderer({
         {orderFSM.status === "PENDING_APPROVAL" && (
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(approveLink, "_blank", "noopener,noreferrer");
-                  dispatchOrderFSM({ type: "AUTHORIZE_AND_OPEN", approveUrl: approveLink });
-                  if (onAuthorizeOrder) onAuthorizeOrder(data.orderId, data.price);
-                }}
-                className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-900/20 transition flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>🔐 Authorize with PayPal Sandbox</span>
-              </button>
+              {securityMode === "paypal_password" ? (
+                <button
+                  type="button"
+                  onClick={() => {
+                    window.open(approveLink, "_blank", "noopener,noreferrer");
+                    dispatchOrderFSM({ type: "AUTHORIZE_AND_OPEN", approveUrl: approveLink });
+                    if (onAuthorizeOrder) onAuthorizeOrder(data.orderId, data.price);
+                  }}
+                  className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold text-xs shadow-md shadow-amber-950/40 transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>🔐 Pay with PayPal Password</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    dispatchOrderFSM({ type: "START_CAPTURE" });
+                    try {
+                      // 1. Inform LangGraph checkpointer via decide endpoint
+                      fetch(`/api/actions/${data.orderId}/decide`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ decision: "approve", feedback: "Approved via Autonomous Agent Delegated Authorization" }),
+                      }).catch(() => {});
+
+                      // 2. Capture on PayPal REST v2 Sandbox
+                      const res = await fetch("/api/paypal/capture", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ orderId: data.orderId }),
+                      });
+                      if (res.ok) {
+                        const resData = await res.json().catch(() => ({}));
+                        dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.capture_id || `cap-${data.orderId.slice(-6)}` });
+                        if (onAuthorizeOrder) onAuthorizeOrder(data.orderId, data.price);
+                      } else {
+                        dispatchOrderFSM({
+                          type: "CAPTURE_FAILURE",
+                          error: `PayPal capture API returned HTTP ${res.status}.`,
+                        });
+                      }
+                    } catch (err: unknown) {
+                      dispatchOrderFSM({
+                        type: "CAPTURE_FAILURE",
+                        error: err instanceof Error ? err.message : "Agent execution failed.",
+                      });
+                    }
+                  }}
+                  className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold text-xs shadow-md shadow-teal-950/40 transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>⚡ Agent Direct Settle</span>
+                </button>
+              )}
 
               <button
                 type="button"
                 onClick={() => {
                   dispatchOrderFSM({ type: "REJECT", reason: "Payment rejected by user. Buffer floor preserved." });
+                  fetch(`/api/actions/${data.orderId}/decide`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ decision: "reject", feedback: "Rejected by user." }),
+                  }).catch(() => {});
                   if (onRejectOrder) onRejectOrder(data.orderId);
                 }}
                 className="h-9 px-3 rounded-lg bg-zinc-900 hover:bg-rose-950/40 border border-zinc-850 hover:border-rose-500/40 text-zinc-300 hover:text-rose-300 text-xs font-medium transition flex items-center gap-1.5 active:scale-95"
@@ -172,7 +272,9 @@ export function ActionCardRenderer({
               </button>
             </div>
             <p className="text-[10px] text-zinc-500 text-center font-mono">
-              Redirects to official sandbox.paypal.com checkout login
+              {securityMode === "paypal_password"
+                ? "Redirects to official sandbox.paypal.com checkout login"
+                : "One-click autonomous execution ($500 sacred reserve intact)"}
             </p>
           </div>
         )}
@@ -182,10 +284,14 @@ export function ActionCardRenderer({
             <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40 text-emerald-300 text-xs space-y-2.5">
               <div className="flex items-center gap-2 justify-center">
                 <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                <span className="font-semibold text-zinc-100">PayPal Checkout Tab Opened</span>
+                <span className="font-semibold text-zinc-100">
+                  {orderFSM.status === "CAPTURING" ? "Processing Settlement..." : "PayPal Checkout Tab Opened"}
+                </span>
               </div>
               <p className="text-[11px] text-zinc-400 text-center leading-relaxed">
-                Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:
+                {orderFSM.status === "CAPTURING"
+                  ? "Guardian Agent is securing settlement via PayPal REST v2 API..."
+                  : "Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:"}
               </p>
               <button
                 type="button"
@@ -278,7 +384,7 @@ export function ActionCardRenderer({
             orderId={data.orderId}
             statusLabel="Payment Settled Successfully"
             autoPlaySound={true}
-            compact={false}
+            compact={true}
           />
         )}
 
@@ -1074,6 +1180,11 @@ export function ActionCardRenderer({
         </div>
       </div>
     );
+  }
+
+  // 8. MAGIC BENTO ANALYTICS CARD (React Bits MagicBento Grid)
+  if (card.type === "bento_analytics") {
+    return <BentoAnalyticsCard />;
   }
 
   return null;
