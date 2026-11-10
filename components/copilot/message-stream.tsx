@@ -14,27 +14,29 @@ import {
   ChevronDown,
   ChevronUp,
 } from "lucide-react";
+import ReactMarkdown from "react-markdown";
+import remarkGfm from "remark-gfm";
 import { ChatMessage } from "./types";
 import { ActionCardRenderer } from "./action-cards";
 
 function ReasoningAccordion({ reasoning }: { reasoning: string }) {
-  const [isOpen, setIsOpen] = useState(true);
+  const [isOpen, setIsOpen] = useState(false);
 
   return (
-    <div className="rounded-xl border border-violet-950/60 bg-[#0E0E14] overflow-hidden text-xs transition-all duration-200">
+    <div className="rounded-xl border border-zinc-800/80 bg-zinc-900/40 overflow-hidden text-xs transition-all duration-200 my-2">
       <button
         type="button"
         onClick={() => setIsOpen((prev) => !prev)}
-        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-violet-950/20 hover:bg-violet-950/30 transition text-zinc-300"
+        className="w-full flex items-center justify-between px-3.5 py-2.5 bg-zinc-900/50 hover:bg-zinc-850/60 transition text-zinc-400 hover:text-zinc-200"
       >
         <div className="flex items-center gap-2">
           <div className="p-1 rounded-md bg-violet-500/10 text-violet-400 border border-violet-500/20">
             <Sparkles className="w-3.5 h-3.5" />
           </div>
-          <span className="font-semibold text-xs text-zinc-200">
-            Autonomous Reasoning &amp; Intent Analysis
+          <span className="font-medium text-xs text-zinc-200">
+            Multi-Agent Reasoning &amp; Swarm Audit
           </span>
-          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/20 text-violet-300 border border-violet-500/30">
+          <span className="px-1.5 py-0.5 rounded text-[10px] font-mono bg-violet-500/10 text-violet-300 border border-violet-500/20">
             Chain-of-Thought
           </span>
         </div>
@@ -46,10 +48,67 @@ function ReasoningAccordion({ reasoning }: { reasoning: string }) {
       </button>
 
       {isOpen && (
-        <div className="px-3.5 py-3 border-t border-violet-950/40 bg-zinc-950/60 font-mono text-[11px] leading-relaxed text-zinc-400 space-y-1.5 whitespace-pre-wrap">
+        <div className="px-4 py-3 border-t border-zinc-800/60 bg-zinc-950/70 font-mono text-[11px] leading-relaxed text-zinc-400 space-y-1.5 whitespace-pre-wrap">
           {reasoning}
         </div>
       )}
+    </div>
+  );
+}
+
+function MarkdownMessage({ content }: { content: string }) {
+  return (
+    <div className="text-[14.5px] leading-relaxed text-zinc-200 space-y-2.5">
+      <ReactMarkdown
+        remarkPlugins={[remarkGfm]}
+        components={{
+          h1: ({ ...props }) => (
+            <h1 className="text-lg font-bold text-zinc-100 mt-4 mb-2 tracking-tight" {...props} />
+          ),
+          h2: ({ ...props }) => (
+            <h2 className="text-base font-semibold text-zinc-100 mt-3 mb-1.5 tracking-tight" {...props} />
+          ),
+          h3: ({ ...props }) => (
+            <h3 className="text-sm font-semibold text-zinc-100 mt-3 mb-1 tracking-tight text-violet-300 flex items-center gap-1.5" {...props} />
+          ),
+          p: ({ ...props }) => (
+            <p className="leading-relaxed text-zinc-200 mb-2.5 last:mb-0" {...props} />
+          ),
+          ul: ({ ...props }) => (
+            <ul className="space-y-1.5 my-2 pl-5 list-disc marker:text-violet-400 text-zinc-300 text-sm" {...props} />
+          ),
+          ol: ({ ...props }) => (
+            <ol className="space-y-2 my-2 pl-5 list-decimal marker:text-violet-400 marker:font-semibold text-zinc-200 text-sm" {...props} />
+          ),
+          li: ({ ...props }) => (
+            <li className="leading-relaxed pl-1 text-[14px] text-zinc-300" {...props} />
+          ),
+          strong: ({ ...props }) => (
+            <strong className="font-semibold text-zinc-100" {...props} />
+          ),
+          em: ({ ...props }) => (
+            <em className="text-zinc-300 italic" {...props} />
+          ),
+          hr: ({ ...props }) => (
+            <hr className="my-3.5 border-zinc-800" {...props} />
+          ),
+          blockquote: ({ ...props }) => (
+            <blockquote className="border-l-2 border-violet-500/60 pl-3.5 py-1 text-zinc-300 italic text-sm my-2 bg-violet-950/10 rounded-r" {...props} />
+          ),
+          code: ({ children, ...props }: any) => {
+            return (
+              <code
+                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-violet-300 font-mono text-[12px]"
+                {...props}
+              >
+                {children}
+              </code>
+            );
+          },
+        }}
+      >
+        {content}
+      </ReactMarkdown>
     </div>
   );
 }
@@ -110,80 +169,30 @@ export function CopilotMessageStream({
     }
   };
 
-  // Helper to render bold markdown and clean lists
-  const renderMessageText = (rawText: string) => {
-    return rawText.split("\n").map((line, idx) => {
-      if (!line.trim()) return <div key={idx} className="h-1.5" />;
-
-      const listMatch = line.match(/^(\s*)([\*\-•]|\d+\.)\s+(.*)$/);
-      const isList = !!listMatch;
-      const content = listMatch ? listMatch[3] : line;
-
-      const renderInline = (str: string) => {
-        const parts = str.split(/(\*\*.*?\*\*|`.*?`)/g);
-        return parts.map((part, pIdx) => {
-          if (part.startsWith("**") && part.endsWith("**")) {
-            return (
-              <strong key={pIdx} className="font-semibold text-zinc-100">
-                {part.slice(2, -2)}
-              </strong>
-            );
-          }
-          if (part.startsWith("`") && part.endsWith("`")) {
-            return (
-              <code
-                key={pIdx}
-                className="px-1.5 py-0.5 rounded bg-zinc-900 border border-zinc-800 text-violet-300 font-mono text-[11px]"
-              >
-                {part.slice(1, -1)}
-              </code>
-            );
-          }
-          return part;
-        });
-      };
-
-      if (isList) {
-        return (
-          <p key={idx} className="flex items-start gap-2 leading-relaxed text-sm text-zinc-300">
-            <span className="text-violet-400 mt-1 shrink-0">•</span>
-            <span>{renderInline(content)}</span>
-          </p>
-        );
-      }
-
-      return (
-        <p key={idx} className="leading-relaxed text-sm text-zinc-300">
-          {renderInline(content)}
-        </p>
-      );
-    });
-  };
-
   return (
     <div className="flex-1 flex flex-col h-full overflow-hidden">
-      {/* 1. Scrollable Message Feed */}
-      <div className="flex-1 overflow-y-auto px-4 py-6 space-y-6 max-w-3xl mx-auto w-full scrollbar-none">
+      {/* 1. Scrollable Message Feed with generous ChatGPT/Claude/Gemini layout */}
+      <div className="flex-1 overflow-y-auto px-4 py-8 space-y-7 max-w-3xl mx-auto w-full scrollbar-none">
         {messages.map((msg) => {
           const isUser = msg.sender === "user";
 
           return (
             <div
               key={msg.id}
-              className={`flex gap-3 animate-in fade-in duration-200 ${
+              className={`flex gap-3.5 animate-in fade-in duration-200 ${
                 isUser ? "justify-end" : "justify-start"
               }`}
             >
               {!isUser && (
-                <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                  <Shield className="w-3.5 h-3.5 text-violet-400" />
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
+                  <Shield className="w-4 h-4 text-violet-400" />
                 </div>
               )}
 
-              <div className={`space-y-1.5 ${isUser ? "max-w-[80%]" : "max-w-[90%] flex-1"}`}>
+              <div className={`space-y-2 ${isUser ? "max-w-[78%]" : "max-w-[92%] flex-1 min-w-0"}`}>
                 {/* User Message Bubble */}
                 {isUser ? (
-                  <div className="p-3.5 rounded-2xl rounded-tr-sm bg-zinc-800/90 border border-zinc-700/60 text-zinc-100 text-sm leading-relaxed shadow-sm">
+                  <div className="px-4 py-3 rounded-2xl rounded-tr-sm bg-zinc-800 text-zinc-100 text-[14.5px] leading-relaxed shadow-sm border border-zinc-700/50">
                     {msg.text}
                   </div>
                 ) : (
@@ -191,18 +200,14 @@ export function CopilotMessageStream({
                   <div className="space-y-3">
                     {/* Collapsible Chain-of-Thought Reasoning Box */}
                     {msg.reasoning && (
-                      <div className="pb-1">
-                        <ReasoningAccordion reasoning={msg.reasoning} />
-                      </div>
+                      <ReasoningAccordion reasoning={msg.reasoning} />
                     )}
 
-                    <div className="text-sm leading-relaxed text-zinc-300 space-y-2">
-                      {renderMessageText(msg.text)}
-                    </div>
+                    <MarkdownMessage content={msg.text} />
 
                     {/* Compact Centered Action Card */}
                     {msg.actionCard && (
-                      <div className="pt-1">
+                      <div className="pt-2">
                         <ActionCardRenderer
                           card={msg.actionCard}
                           onAuthorizeOrder={(orderId, amount) => {
@@ -212,22 +217,22 @@ export function CopilotMessageStream({
                       </div>
                     )}
 
-                    {/* Copy Button */}
-                    <div className="flex items-center gap-2 pt-1">
+                    {/* Copy and Meta Toolbar */}
+                    <div className="flex items-center gap-3 pt-1">
                       <button
                         type="button"
                         onClick={() => handleCopy(msg.id, msg.text)}
-                        className="flex items-center gap-1 text-[11px] text-zinc-500 hover:text-zinc-300 transition"
+                        className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition"
                         title="Copy response"
                       >
                         {copiedId === msg.id ? (
                           <>
-                            <Check className="w-3 h-3 text-emerald-400" />
+                            <Check className="w-3.5 h-3.5 text-emerald-400" />
                             <span className="text-emerald-400">Copied</span>
                           </>
                         ) : (
                           <>
-                            <Copy className="w-3 h-3" />
+                            <Copy className="w-3.5 h-3.5" />
                             <span>Copy</span>
                           </>
                         )}
@@ -238,8 +243,8 @@ export function CopilotMessageStream({
               </div>
 
               {isUser && (
-                <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5 text-zinc-300">
-                  <User className="w-3.5 h-3.5" />
+                <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5 text-zinc-300">
+                  <User className="w-4 h-4" />
                 </div>
               )}
             </div>
@@ -248,19 +253,19 @@ export function CopilotMessageStream({
 
         {/* Loading Indicator */}
         {isGenerating && (
-          <div className="flex items-start gap-3 animate-in fade-in duration-150">
-            <div className="w-7 h-7 rounded-lg bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5">
-              <Shield className="w-3.5 h-3.5 text-violet-400 animate-pulse" />
+          <div className="flex items-start gap-3.5 animate-in fade-in duration-150">
+            <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5">
+              <Shield className="w-4 h-4 text-violet-400 animate-pulse" />
             </div>
 
-            <div className="p-3 rounded-xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-2 text-xs text-zinc-400">
+            <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-400 shadow-sm">
               <div className="flex items-center gap-1">
                 <span className="w-1.5 h-1.5 rounded-full bg-violet-400 animate-bounce" />
                 <span className="w-1.5 h-1.5 rounded-full bg-indigo-400 animate-bounce delay-150" />
                 <span className="w-1.5 h-1.5 rounded-full bg-teal-400 animate-bounce delay-300" />
               </div>
-              <span className="text-zinc-400 text-xs">
-                Guardian Copilot is analyzing cash flow &amp; transaction safety...
+              <span className="text-zinc-300 text-xs font-medium">
+                Guardian Copilot swarm evaluating proposal &amp; invariants...
               </span>
             </div>
           </div>
@@ -269,7 +274,7 @@ export function CopilotMessageStream({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* 2. Docked Clean Input Container at Bottom */}
+      {/* 2. Docked Clean Input Container at Bottom (ChatGPT / Claude / Gemini style) */}
       <div className="p-4 bg-[#0A0A0C]/95 border-t border-zinc-850/80 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto w-full relative">
           <div className="bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 focus-within:border-zinc-600 rounded-2xl shadow-xl transition-all duration-200 p-3">
@@ -278,8 +283,8 @@ export function CopilotMessageStream({
               onChange={(e) => setInputValue(e.target.value)}
               onKeyDown={handleKeyDown}
               rows={2}
-              placeholder="Ask a follow-up or simulate transaction..."
-              className="w-full bg-transparent text-sm text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none leading-relaxed px-1 pt-1 pb-2"
+              placeholder="Ask a follow-up, compare products, or authorize a payment..."
+              className="w-full bg-transparent text-[14.5px] text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none leading-relaxed px-1 pt-1 pb-2"
             />
 
             <div className="flex items-center justify-between pt-2 border-t border-zinc-850/60">
@@ -301,7 +306,7 @@ export function CopilotMessageStream({
                   className={`p-1.5 rounded-lg border transition ${
                     isRecording
                       ? "bg-rose-500/20 border-rose-500 text-rose-300 animate-pulse"
-                    : "hover:bg-zinc-800 border-transparent text-zinc-400 hover:text-zinc-200"
+                      : "hover:bg-zinc-800 border-transparent text-zinc-400 hover:text-zinc-200"
                   }`}
                   title="Voice input"
                 >

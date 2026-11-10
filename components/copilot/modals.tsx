@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useState } from "react";
-import { X, Sliders, Shield } from "lucide-react";
+import { X, Sliders, Shield, Lock, Zap } from "lucide-react";
 
 export function SettingsModal({
   isOpen,
@@ -12,6 +12,7 @@ export function SettingsModal({
 }) {
   const [temperature, setTemperature] = useState(0.2);
   const [safetyBufferFloor, setSafetyBufferFloor] = useState(500);
+  const [defaultSecurityMode, setDefaultSecurityMode] = useState<"interactive" | "autonomous">("interactive");
 
   if (!isOpen) return null;
 
@@ -21,7 +22,7 @@ export function SettingsModal({
         <div className="flex items-center justify-between border-b border-zinc-800 pb-3">
           <div className="flex items-center gap-2">
             <Sliders className="w-4 h-4 text-violet-400" />
-            <h3 className="text-sm font-bold text-zinc-100">Copilot Runtime Settings</h3>
+            <h3 className="text-sm font-bold text-zinc-100">Copilot Runtime &amp; Security Settings</h3>
           </div>
           <button
             type="button"
@@ -33,6 +34,52 @@ export function SettingsModal({
         </div>
 
         <div className="space-y-4 text-xs">
+          {/* Security & Authorization Posture */}
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="text-zinc-200 font-semibold">PayPal Payment Authorization Posture</span>
+              <span className="text-[10px] text-zinc-400 font-mono">Security Guard</span>
+            </div>
+            
+            <div className="grid grid-cols-2 gap-2">
+              <button
+                type="button"
+                onClick={() => setDefaultSecurityMode("interactive")}
+                className={`p-2.5 rounded-xl border text-left transition space-y-1 ${
+                  defaultSecurityMode === "interactive"
+                    ? "bg-amber-950/20 border-amber-500/40 text-amber-200"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs">
+                  <Lock className="w-3.5 h-3.5 text-amber-400" />
+                  <span>PayPal Password</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 leading-tight">
+                  Zero-trust: requires manual PayPal password on sandbox.paypal.com.
+                </p>
+              </button>
+
+              <button
+                type="button"
+                onClick={() => setDefaultSecurityMode("autonomous")}
+                className={`p-2.5 rounded-xl border text-left transition space-y-1 ${
+                  defaultSecurityMode === "autonomous"
+                    ? "bg-teal-950/20 border-teal-500/40 text-teal-200"
+                    : "bg-zinc-900 border-zinc-800 text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <div className="flex items-center gap-1.5 font-semibold text-xs">
+                  <Zap className="w-3.5 h-3.5 text-teal-400" />
+                  <span>Autonomous Agent</span>
+                </div>
+                <p className="text-[10px] text-zinc-400 leading-tight">
+                  Agent signs and settles autonomously if &gt; $500 reserve buffer holds.
+                </p>
+              </button>
+            </div>
+          </div>
+
           <div>
             <div className="flex items-center justify-between mb-1.5">
               <span className="text-zinc-300 font-medium">Inference Temperature</span>

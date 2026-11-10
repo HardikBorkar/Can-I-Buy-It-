@@ -8,6 +8,7 @@ import {
   TrendingUp,
   Receipt,
   Check,
+  ShieldCheck,
 } from "lucide-react";
 import { SubAgentId } from "./types";
 
@@ -73,6 +74,12 @@ export function CopilotHeader({
 
       {/* Right: Sandbox Status, Minimal Mode Selector, Clear Chat */}
       <div className="flex items-center gap-2.5 text-xs">
+        {/* Security Posture Indicator */}
+        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-medium">
+          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
+          <span>Security Guard: Dual HITL Active</span>
+        </div>
+
         {/* Sandbox Status Indicator */}
         <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
           <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

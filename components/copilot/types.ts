@@ -18,7 +18,8 @@ export type ActionCardType =
   | "webhook_inspect"
   | "balance_snapshot"
   | "affordability"
-  | "product_recommendation";
+  | "product_recommendation"
+  | "bento_analytics";
 
 export interface OrderCardData {
   orderId: string;

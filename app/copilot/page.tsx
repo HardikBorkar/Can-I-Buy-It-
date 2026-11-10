@@ -151,24 +151,101 @@ export default function CopilotPage() {
         );
       }
 
-      // Connect directly to server-side /api/copilot/chat
+      // Connect directly to FastAPI multi-agent backend via /api/py/copilot/chat
       try {
-        const res = await fetch("/api/copilot/chat", {
+        const res = await fetch("/api/py/copilot/chat?stream=true", {
           method: "POST",
-          headers: { "Content-Type": "application/json" },
+          headers: {
+            "Content-Type": "application/json",
+            Accept: "text/event-stream, application/json",
+          },
           body: JSON.stringify({
             message: userText,
             active_agent: activeAgentId,
             thread_id: currentId || "thread-session-1",
+            user_id: "alex_cro",
           }),
         });
 
-        if (!res.ok) throw new Error("API call failed");
-        const data = await res.json();
+        if (!res.ok) throw new Error(`Agent backend responded with HTTP ${res.status}`);
+
+        const contentType = res.headers.get("content-type") || "";
+        let data: any = {};
+        let actionCard: any = undefined;
+
+        if (contentType.includes("text/event-stream") && res.body) {
+          const reader = res.body.getReader();
+          const decoder = new TextDecoder();
+          let buffer = "";
+          let finalReply = "";
+
+          const processBlock = (block: string) => {
+            if (!block.trim()) return;
+            let currentEvent = "message";
+            let dataStr = "";
+            const lines = block.split(/\r?\n/);
+            for (const line of lines) {
+              if (line.startsWith("event:")) {
+                currentEvent = line.replace("event:", "").trim();
+              } else if (line.startsWith("data:")) {
+                const val = line.slice(5).trim();
+                dataStr = dataStr ? `${dataStr}\n${val}` : val;
+              }
+            }
+            if (!dataStr) return;
+
+            try {
+              const parsed = JSON.parse(dataStr);
+              if (currentEvent === "message") {
+                if (parsed.reply) finalReply = parsed.reply;
+              } else if (currentEvent === "hitl_required") {
+                if (parsed.action_type === "bento_analytics") {
+                  actionCard = { type: "bento_analytics" as const };
+                } else {
+                  actionCard = {
+                    type: parsed.action_type === "send_invoice" ? ("invoice_preview" as const) : ("order_card" as const),
+                    event: "APPROVAL_REQUIRED" as const,
+                    orderCardData: {
+                      orderId: parsed.action_id,
+                      item: parsed.raw_payload?.item_name || parsed.description,
+                      price: parsed.amount,
+                      currency: parsed.currency || "USD",
+                      merchant: parsed.recipient || "Verified Merchant",
+                      status: "PENDING_AUTHORIZATION",
+                    },
+                  };
+                }
+              }
+            } catch {
+              // ignore parse error
+            }
+          };
+
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            // Split by either \r\n\r\n or \n\n
+            const blocks = buffer.split(/\r?\n\r?\n/);
+            buffer = blocks.pop() || "";
+
+            for (const block of blocks) {
+              processBlock(block);
+            }
+          }
+
+          if (buffer.trim()) {
+            processBlock(buffer);
+          }
+
+          data = { reply: finalReply, actionCard };
+        } else {
+          data = await res.json();
+        }
 
         // Convert data.actionCard into our ActionCardPayload
-        let actionCard = data.actionCard;
-        if (data.actionCard) {
+        if (!actionCard && data.actionCard) {
           if (data.actionCard.type === "balance") {
             actionCard = {
               type: "balance_snapshot" as const,
@@ -199,17 +276,41 @@ export default function CopilotPage() {
 
         if (!actionCard && data.pending_action) {
           const pa = data.pending_action;
+          if (pa.action_type === "bento_analytics") {
+            actionCard = {
+              type: "bento_analytics" as const,
+            };
+          } else {
+            actionCard = {
+              type: pa.action_type === "send_invoice" ? ("invoice_preview" as const) : ("order_card" as const),
+              event: "APPROVAL_REQUIRED" as const,
+              orderCardData: {
+                orderId: pa.action_id,
+                item: pa.raw_payload?.item_name || pa.description,
+                price: pa.amount,
+                currency: pa.currency || "USD",
+                merchant: pa.recipient || "Verified Merchant",
+                status: "PENDING_AUTHORIZATION",
+              },
+            };
+          }
+        }
+
+        // Auto-attach MagicBento grid whenever user asks for graphs, charts, tables, or analytics telemetry
+        const lowerPrompt = userText.toLowerCase();
+        if (
+          !actionCard &&
+          (lowerPrompt.includes("graph") ||
+            lowerPrompt.includes("chart") ||
+            lowerPrompt.includes("bar graph") ||
+            lowerPrompt.includes("table") ||
+            lowerPrompt.includes("bento") ||
+            lowerPrompt.includes("analytics") ||
+            lowerPrompt.includes("telemetry") ||
+            lowerPrompt.includes("visualize"))
+        ) {
           actionCard = {
-            type: pa.action_type === "send_invoice" ? ("invoice_preview" as const) : ("order_card" as const),
-            event: "APPROVAL_REQUIRED" as const,
-            orderCardData: {
-              orderId: pa.action_id,
-              item: pa.raw_payload?.item_name || pa.description,
-              price: pa.amount,
-              currency: pa.currency || "USD",
-              merchant: pa.recipient || "Verified Merchant",
-              status: "PENDING_AUTHORIZATION",
-            },
+            type: "bento_analytics" as const,
           };
         }
 
@@ -217,7 +318,7 @@ export default function CopilotPage() {
           id: `asst-${Date.now()}`,
           sender: "assistant",
           agentId: activeAgentId,
-          text: data.reply || "Analysis complete.",
+          text: data.reply || "Multi-agent consensus analysis complete.",
           reasoning: data.reasoning,
           actionCard,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
@@ -240,7 +341,7 @@ export default function CopilotPage() {
           id: `asst-${Date.now()}`,
           sender: "assistant",
           agentId: activeAgentId,
-          text: `⚠️ **Connection Notice:** Unable to contact the live backend. Verified PayPal Sandbox offline snapshot:\n\n* **Available Balance:** $1,850.00 USD\n* **Protected Floor:** $500.00 USD (Intact)\n* **Discretionary Safe Spend:** $1,350.00 USD`,
+          text: `⚠️ **Connection Notice:** Unable to contact FastAPI backend via \`/api/py/copilot/chat\`. Verified PayPal Sandbox offline snapshot:\n\n* **Available Balance:** $1,850.00 USD\n* **Protected Floor:** $500.00 USD (Intact)\n* **Discretionary Safe Spend:** $1,350.00 USD`,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
         setMessages((prev) => [...prev, fallbackMsg]);
