@@ -20,7 +20,8 @@ AgentActionStatus = Literal[
 class AgentState(TypedDict):
     """
     Enterprise State Machine schema for Guardian Copilot.
-    Orchestrates messages, scraping results, semantic memory, and HITL gate states.
+    Orchestrates multi-agent swarm debate (Trader, Auditor, Arbiter),
+    scraping results, semantic memory, and HITL gate states.
     """
     messages: Annotated[List[BaseMessage], add_messages]
     user_id: str
@@ -32,6 +33,14 @@ class AgentState(TypedDict):
     action_status: AgentActionStatus  # Explicit Finite State Machine lifecycle
     final_response: Optional[str]
 
+    # Multi-Agent Consensus Swarm Fields
+    trader_proposal: Optional[Dict[str, Any]]
+    audit_feedback: Optional[Dict[str, Any]]
+    debate_turns: int
+    consensus_reached: bool
+    arbitration_verdict: Optional[Dict[str, Any]]
+    multi_agent_trace: List[Dict[str, Any]]
+
 
 # =============================================================================
 # PYDANTIC SCHEMAS FOR HITL ACTIONS & APPROVALS
@@ -40,7 +49,14 @@ class AgentState(TypedDict):
 class PendingActionPayload(BaseModel):
     """Structured description of an action waiting for Human-In-The-Loop approval."""
     action_id: str = Field(description="Unique deterministic identifier for the action")
-    action_type: Literal["create_order", "capture_order", "send_invoice", "escrow_release"]
+    action_type: Literal[
+        "create_order",
+        "capture_order",
+        "send_invoice",
+        "authorize_escrow",
+        "release_escrow",
+        "split_group_payment",
+    ]
     tool_name: str
     description: str
     amount: float = Field(default=0.0)
