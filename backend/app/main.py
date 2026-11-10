@@ -34,9 +34,15 @@ app = FastAPI(
 )
 
 # Configure CORS
+origins = [origin for origin in settings.CORS_ORIGINS if origin != "*"]
+if "http://localhost:3000" not in origins:
+    origins.insert(0, "http://localhost:3000")
+if "http://127.0.0.1:3000" not in origins:
+    origins.append("http://127.0.0.1:3000")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

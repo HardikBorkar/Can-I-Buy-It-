@@ -38,7 +38,7 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
         }
         await asyncio.sleep(0.15)
 
-        # Step 2: Prepare LangGraph initial state
+        # Step 2: Prepare LangGraph initial state with multi-agent consensus swarm
         initial_state = {
             "messages": [HumanMessage(content=req.message)],
             "user_id": req.user_id or "alex_cro",
@@ -49,6 +49,12 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
             "pending_action": None,
             "action_status": "idle",
             "final_response": None,
+            "trader_proposal": None,
+            "audit_feedback": None,
+            "debate_turns": 0,
+            "consensus_reached": False,
+            "arbitration_verdict": None,
+            "multi_agent_trace": [],
         }
 
         config = {"configurable": {"thread_id": thread_id}}
@@ -57,7 +63,12 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
             "event": "status",
             "data": json.dumps({"status": "memory", "message": "Retrieving semantic context from ChromaDB..."}),
         }
-        await asyncio.sleep(0.15)
+        await asyncio.sleep(0.1)
+
+        yield {
+            "event": "status",
+            "data": json.dumps({"status": "swarm_debate", "message": "Multi-agent swarm evaluating proposal (Trader ↔ Auditor ↔ Arbiter)..."}),
+        }
 
         # Step 3: Run Graph execution
         try:
@@ -72,6 +83,14 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
                         "type": "scraped_merchant",
                         "data": scraped,
                     }),
+                }
+
+            # Emit multi-agent trace events
+            multi_agent_trace = final_state.get("multi_agent_trace", [])
+            for trace_item in multi_agent_trace:
+                yield {
+                    "event": "agent_trace",
+                    "data": json.dumps(trace_item),
                 }
 
             # Check if HITL gate triggered
@@ -102,6 +121,7 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
                     "thread_id": thread_id,
                     "reply": reply,
                     "action_status": action_status,
+                    "multi_agent_trace": multi_agent_trace,
                 }),
             }
 
@@ -136,6 +156,12 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
         "pending_action": None,
         "action_status": "idle",
         "final_response": None,
+        "trader_proposal": None,
+        "audit_feedback": None,
+        "debate_turns": 0,
+        "consensus_reached": False,
+        "arbitration_verdict": None,
+        "multi_agent_trace": [],
     }
     config = {"configurable": {"thread_id": thread_id}}
     final_state = await guardian_agent_graph.ainvoke(initial_state, config=config)
@@ -147,5 +173,6 @@ async def copilot_chat_endpoint(req: ChatRequest, request: Request):
         pending_action=final_state.get("pending_action"),
         retrieved_context=final_state.get("retrieved_context", []),
         scraped_data=final_state.get("scraped_data"),
+        multi_agent_trace=final_state.get("multi_agent_trace", []),
     )
 
