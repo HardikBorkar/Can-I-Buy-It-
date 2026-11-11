@@ -4,7 +4,6 @@ import React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
-import { BackgroundCubesGrid } from "@/components/ui/background-cubes-grid";
 
 type Platform = {
   word: string;
@@ -30,12 +29,10 @@ export function LandingHero() {
   });
 
   return (
-    <div className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-16 sm:py-24 sm:px-8 bg-[#060c18] font-sans">
-      {/* 3D Interactive Perspective Cubes Grid */}
-      <BackgroundCubesGrid className="-z-10" />
-
-      {/* Ambient Gradient Glows */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-sky-500/12 via-violet-600/12 to-teal-500/12 blur-[130px] pointer-events-none -z-10" />
+    <div className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-16 sm:py-24 sm:px-8 bg-[#040814] font-sans">
+      {/* Ambient Gradient Glows (Matching Hardik's Clean Design) */}
+      <div className="absolute top-1/4 left-1/3 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[380px] bg-gradient-to-br from-sky-500/10 via-indigo-600/10 to-transparent blur-[140px] pointer-events-none -z-10" />
+      <div className="absolute bottom-0 right-0 w-[550px] h-[450px] bg-gradient-to-tl from-blue-600/18 via-indigo-500/10 to-transparent blur-[130px] pointer-events-none -z-10" />
 
       <div className="pointer-events-none mx-auto flex max-w-[1100px] flex-col items-center text-center antialiased">
         {/* Clean Hero Headline */}
