@@ -421,12 +421,15 @@ function UnitDropdown<V extends string>({
       <PopoverTrigger
         type="button"
         aria-label={label}
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "h-7 gap-1 px-2 text-xs")}
+        className={cn(
+          "inline-flex items-center gap-1 rounded-md px-2 py-0.5 text-xs font-medium bg-[#0c182e] hover:bg-[#122344] border border-[#172b4d] text-slate-200 hover:text-white transition-colors",
+          "h-7 gap-1 px-2 text-xs"
+        )}
       >
         {value}
-        <ChevronDown className="size-3 text-muted-foreground" aria-hidden />
+        <ChevronDown className="size-3 text-slate-400" aria-hidden />
       </PopoverTrigger>
-      <PopoverContent align="end" className="w-auto min-w-[4.5rem] p-1">
+      <PopoverContent align="end" className="w-auto min-w-[4.5rem] p-1 bg-[#0c182e] border border-[#172b4d] text-slate-100 shadow-xl rounded-lg">
         <ul>
           {options.map((option) => (
             <li key={option.value}>
@@ -595,7 +598,7 @@ function ColorsControl() {
               <Pipette className="size-4 drop-shadow" />
             </span>
           </PopoverTrigger>
-          <PopoverContent align="start" className="w-auto p-3">
+          <PopoverContent align="start" className="w-auto p-3 bg-[#0c182e] border border-[#172b4d] text-slate-100 shadow-xl rounded-xl">
             <div className="flex flex-col gap-3">
               <HexColorPicker color={draft} onChange={setDraft} />
               <Input
@@ -778,12 +781,15 @@ function Typeahead<T>({
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger
         type="button"
-        className={cn(buttonVariants({ variant: "outline", size: "sm" }), "w-fit gap-1.5")}
+        className={cn(
+          "inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-xs font-medium bg-[#0c182e] hover:bg-[#122344] border border-[#172b4d] text-slate-200 hover:text-white transition-colors",
+          "w-fit gap-1.5"
+        )}
       >
-        <Plus className="size-4" />
+        <Plus className="size-4 text-sky-400" />
         {triggerLabel}
       </PopoverTrigger>
-      <PopoverContent align="start" className="w-72 p-0">
+      <PopoverContent align="start" className="w-72 p-0 bg-[#0c182e] border border-[#172b4d] text-slate-100 shadow-xl rounded-xl">
         <div className="border-b p-2">
           <Input
             autoFocus
@@ -1159,22 +1165,23 @@ function FacetPopover({
       <PopoverTrigger
         type="button"
         className={cn(
-          buttonVariants({ variant: "outline", size: "sm" }),
-          "gap-1.5",
-          count > 0 && "border-foreground/40",
+          "inline-flex items-center justify-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium transition-colors shadow-sm",
+          count > 0
+            ? "bg-[#0070BA]/25 border border-[#0070BA] text-[#38bdf8] font-semibold"
+            : "bg-[#0c182e] hover:bg-[#122344] border border-[#172b4d] text-slate-200 hover:text-white hover:border-[#0070BA]/60"
         )}
       >
         {label}
         {count > 0 ? (
-          <Badge variant="secondary" className="size-5 justify-center rounded-full px-0 tabular-nums">
+          <Badge variant="secondary" className="size-5 justify-center rounded-full px-0 tabular-nums bg-[#0070BA] text-white border-0 text-[10px]">
             {count}
           </Badge>
         ) : null}
-        <ChevronDown className="size-3.5 text-muted-foreground" aria-hidden />
+        <ChevronDown className={cn("size-3.5 transition-colors", count > 0 ? "text-[#38bdf8]" : "text-slate-400")} aria-hidden />
       </PopoverTrigger>
       <PopoverContent
         align="start"
-        className={cn("w-auto max-w-sm p-3", contentClassName)}
+        className={cn("w-auto max-w-sm p-3 bg-[#0c182e] border border-[#172b4d] text-slate-100 shadow-2xl rounded-xl", contentClassName)}
       >
         {children}
       </PopoverContent>
