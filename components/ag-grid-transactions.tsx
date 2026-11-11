@@ -98,8 +98,8 @@ export function AgGridTransactions({ transactions }: Props) {
           const val = params.value;
           if (val === "PAY_IN_4") {
             return (
-              <span className="inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[11px] font-semibold bg-indigo-500/15 border border-indigo-500/40 text-indigo-300">
-                <ShieldCheck className="w-3 h-3 text-indigo-400" />
+              <span className="inline-flex items-center gap-1 px-2.5 py-1 leading-none align-middle rounded-full text-[11px] font-semibold bg-indigo-500/15 border border-indigo-500/40 text-indigo-300">
+                <ShieldCheck className="w-3 h-3 text-indigo-400 shrink-0" />
                 Pay in 4
               </span>
             );

@@ -1,107 +1,156 @@
 "use client";
 
-import React, { type ReactNode } from "react";
+import React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
-import { BackgroundCubesGrid } from "@/components/ui/background-cubes-grid";
 
 type Platform = {
   word: string;
-  bg: string;
   logoUrl: string;
+  wrapperClass: string;
+  imgClass: string;
 };
 
 const platforms: Platform[] = [
-  { word: "PayPal", bg: "#003087", logoUrl: "/logos/clean/paypal.png" },
-  { word: "Channel3", bg: "#0284c7", logoUrl: "/logos/clean/channel3.png" },
-  { word: "AG Grid", bg: "#1e293b", logoUrl: "/logos/clean/aggrid.png" },
-  { word: "Render", bg: "#111827", logoUrl: "/logos/clean/render.png" },
+  {
+    word: "PayPal",
+    logoUrl: "/logos/clean/paypal-square.png",
+    wrapperClass: "size-8 rounded-lg overflow-hidden shadow-md shadow-blue-950/60 shrink-0",
+    imgClass: "size-full object-cover",
+  },
+  {
+    word: "Channel3",
+    logoUrl: "/logos/clean/channel3.png",
+    wrapperClass: "size-8 flex items-center justify-center shrink-0",
+    imgClass: "size-7 object-contain invert",
+  },
+  {
+    word: "AG Grid",
+    logoUrl: "/logos/clean/aggrid.png",
+    wrapperClass: "size-8 rounded-lg bg-white p-1 flex items-center justify-center shadow-md shrink-0",
+    imgClass: "size-full object-contain",
+  },
+  {
+    word: "Render",
+    logoUrl: "/logos/clean/render.png",
+    wrapperClass: "size-8 flex items-center justify-center shrink-0",
+    imgClass: "size-7 object-contain invert",
+  },
 ];
 
 const EASE_OUT = [0.215, 0.61, 0.355, 1] as const;
-const STAGGER = 0.09;
-const START = 0.12;
-
-function InlinePill({ platform, delay }: { platform: Platform; delay: number }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <motion.span
-      initial={reduceMotion ? false : { opacity: 0, y: 8, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.6, ease: EASE_OUT, delay }}
-      className="inline-flex translate-y-[-0.06em] items-center gap-[0.38em] rounded-full py-[0.14em] pr-[0.55em] pl-[0.16em] align-middle leading-none bg-white text-slate-900 border border-slate-200/90 shadow-[0_2px_14px_rgba(0,0,0,0.35)] transition duration-200 hover:scale-105 hover:shadow-xl cursor-default"
-    >
-      <span
-        className="inline-flex size-[1.25em] items-center justify-center rounded-full overflow-hidden bg-slate-50 ring-1 ring-slate-200/80 p-[0.16em] shrink-0 shadow-inner"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={platform.logoUrl}
-          alt={platform.word}
-          className="size-full object-contain"
-        />
-      </span>
-      <span className="font-semibold text-[0.88em] tracking-tight text-slate-900 select-none">
-        {platform.word}
-      </span>
-    </motion.span>
-  );
-}
 
 export function LandingHero() {
   const reduceMotion = useReducedMotion();
-  const [paypal, channel3, agGrid, renderPlatform] = platforms;
-
-  const pill = (p: Platform, hasComma = false): ReactNode => (
-    <span className="inline-flex items-baseline whitespace-nowrap mx-[0.1em]">
-      <InlinePill platform={p} delay={START + platforms.indexOf(p) * STAGGER} />
-      {hasComma && (
-        <span className="text-[0.62em] font-normal text-slate-400 select-none ml-[0.04em] mr-[0.16em] translate-y-[-0.06em]">
-          ,
-        </span>
-      )}
-    </span>
-  );
 
   const fadeUp = (delay: number) => ({
     initial: reduceMotion ? false : { opacity: 0, y: 12 },
     animate: { opacity: 1, y: 0 },
-    transition: { duration: 0.7, ease: EASE_OUT, delay },
+    transition: { duration: 0.65, ease: EASE_OUT, delay },
   });
 
   return (
-    <div className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-16 sm:py-24 sm:px-8 bg-[#060c18] font-sans">
-      {/* 3D Interactive Perspective Cubes Grid */}
-      <BackgroundCubesGrid className="-z-10" />
+    <div className="relative isolate flex min-h-screen w-full items-center justify-center overflow-hidden px-4 py-16 sm:py-24 sm:px-8 bg-[#04060c] font-sans">
+      {/* Diagonal Spotlight Beam */}
+      <svg
+        aria-hidden="true"
+        className="pointer-events-none absolute -top-40 left-[-15%] -z-10 h-[145vh] w-[145vw] opacity-90 sm:-top-32 sm:-left-10"
+        xmlns="http://www.w3.org/2000/svg"
+        viewBox="0 0 3787 2842"
+        fill="none"
+      >
+        <g filter="url(#hero-spotlight-blur)">
+          <ellipse
+            cx="1924.71"
+            cy="273.501"
+            rx="1924.71"
+            ry="273.501"
+            transform="matrix(-0.822377 -0.568943 -0.568943 0.822377 3631.88 2291.09)"
+            fill="url(#hero-spotlight-grad)"
+            fillOpacity="0.32"
+          />
+        </g>
+        <defs>
+          <filter
+            id="hero-spotlight-blur"
+            x="0.860352"
+            y="0.838989"
+            width="3785.16"
+            height="2840.26"
+            filterUnits="userSpaceOnUse"
+            colorInterpolationFilters="sRGB"
+          >
+            <feFlood floodOpacity="0" result="BackgroundImageFix" />
+            <feBlend mode="normal" in="SourceGraphic" in2="BackgroundImageFix" result="shape" />
+            <feGaussianBlur stdDeviation="151" result="effect1_foregroundBlur" />
+          </filter>
+          <linearGradient id="hero-spotlight-grad" x1="0%" y1="0%" x2="100%" y2="0%">
+            <stop offset="0%" stopColor="#3b82f6" />
+            <stop offset="50%" stopColor="#6366f1" />
+            <stop offset="100%" stopColor="#1e1b4b" />
+          </linearGradient>
+        </defs>
+      </svg>
 
-      {/* Ambient Gradient Glows */}
-      <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-sky-500/12 via-violet-600/12 to-teal-500/12 blur-[130px] pointer-events-none -z-10" />
+      {/* Soft Top-Left Radial Spotlight Ambient */}
+      <div
+        aria-hidden="true"
+        className="pointer-events-none absolute inset-0 -z-10 bg-[radial-gradient(ellipse_65%_55%_at_25%_20%,rgba(59,130,246,0.16),rgba(67,56,202,0.08)_45%,transparent_75%)]"
+      />
 
-      <div className="pointer-events-none mx-auto flex max-w-[1100px] flex-col items-center text-center antialiased">
-        {/* Dynamic Sponsor Headline - Modern Professional Sans-Serif */}
-        <h1 className="max-w-[26ch] text-[clamp(32px,4.8vw,62px)] leading-[1.3] font-bold tracking-[-0.03em] text-balance text-white font-sans">
-          Simulate, shop, and transact across {pill(paypal, true)} {pill(channel3, true)} {pill(agGrid, true)} and {pill(renderPlatform)} before you spend.
-        </h1>
+      <div className="mx-auto flex max-w-[1040px] flex-col items-center text-center antialiased">
+        {/* Main Spotlight Headline */}
+        <motion.h1
+          {...fadeUp(0.05)}
+          className="max-w-[22ch] bg-gradient-to-b from-white via-slate-200 to-slate-400 bg-clip-text text-[clamp(34px,5vw,60px)] leading-[1.12] font-bold tracking-[-0.03em] text-balance text-transparent font-sans"
+        >
+          Simulate, shop, and transact before you spend.
+        </motion.h1>
 
         {/* Subtitle */}
         <motion.p
-          {...fadeUp(0.4)}
-          className="mt-6 max-w-[680px] text-[clamp(15px,1.4vw,18px)] leading-[1.6] text-pretty text-slate-400 font-sans"
+          {...fadeUp(0.18)}
+          className="mt-5 max-w-[660px] text-[clamp(14px,1.35vw,17px)] leading-[1.6] text-pretty text-slate-400 font-sans"
         >
           Guardian Copilot is an autonomous financial agent for PayPal. Protect your sacred{" "}
           <strong className="text-emerald-400 font-semibold">$500 safety buffer floor</strong>, discover live multi-merchant deals on Channel3, and evaluate cash flow with interactive AG Grid tables.
         </motion.p>
 
+        {/* Spotlight Brand Logos (Icon + White Wordmark Format) */}
+        <motion.div
+          {...fadeUp(0.32)}
+          className="mt-12 grid grid-cols-2 sm:grid-cols-4 items-center justify-items-center gap-x-10 gap-y-8 sm:gap-x-14"
+        >
+          {platforms.map((platform) => (
+            <div
+              key={platform.word}
+              className="flex items-center gap-3 select-none opacity-90 hover:opacity-100 transition-opacity duration-200"
+            >
+              <span className={platform.wrapperClass}>
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={platform.logoUrl}
+                  alt={platform.word}
+                  className={platform.imgClass}
+                />
+              </span>
+              <span className="text-lg sm:text-xl font-bold tracking-tight text-white">
+                {platform.word}
+              </span>
+            </div>
+          ))}
+        </motion.div>
+
         {/* Two Call-to-Action Buttons */}
         <motion.div
-          {...fadeUp(0.6)}
-          className="pointer-events-auto mt-9 flex flex-col items-center gap-3.5 sm:flex-row w-full sm:w-auto justify-center"
+          {...fadeUp(0.46)}
+          className="mt-12 flex flex-col items-center gap-3.5 sm:flex-row w-full sm:w-auto justify-center"
         >
           {/* Button 1: Go to Storefront */}
           <Link
             href="/storefront"
-            className="w-full sm:w-auto inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-sm font-semibold text-white bg-slate-800 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 shadow-lg transition active:scale-95 group cursor-pointer"
+            className="w-full sm:w-auto inline-flex h-12 items-center justify-center gap-2 rounded-full px-7 text-sm font-semibold text-white bg-slate-800/90 hover:bg-slate-700 border border-slate-700 hover:border-slate-600 shadow-lg transition active:scale-95 group cursor-pointer"
           >
             <ShoppingBag className="w-4 h-4 text-sky-400 group-hover:scale-110 transition-transform" />
             <span>Go to Storefront</span>
@@ -123,7 +172,7 @@ export function LandingHero() {
 
         {/* Features / Guarantee Micro-pills */}
         <motion.div
-          {...fadeUp(0.75)}
+          {...fadeUp(0.6)}
           className="mt-8 flex flex-wrap items-center justify-center gap-4 text-[12px] text-slate-500 font-sans"
         >
           <div className="flex items-center gap-1.5">

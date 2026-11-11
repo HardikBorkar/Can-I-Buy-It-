@@ -13,7 +13,6 @@ import {
   ArrowLeft,
   RefreshCw,
   Wallet,
-  Zap,
   CheckCircle2,
   AlertTriangle,
   Receipt,
@@ -530,8 +529,7 @@ function DashboardContent() {
                 }`}
               >
                 <div className="flex items-center justify-between mb-2">
-                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-300 flex items-center gap-1.5">
-                    <Zap className="w-3.5 h-3.5 text-indigo-400" />
+                  <span className="text-xs font-bold uppercase tracking-wider text-indigo-300">
                     Plan B: PayPal Pay in 4 (4x ${simulationVerdict.installment.toFixed(2)})
                   </span>
                   {simulationVerdict.payIn4Safe && (
@@ -544,7 +542,7 @@ function DashboardContent() {
                 <p className="text-xs text-slate-300 mb-3">
                   {simulationVerdict.payIn4Safe ? (
                     <>
-                      ✅ Spreading payments every 2 weeks maintains a healthy lowest balance of{" "}
+                      Spreading payments every 2 weeks maintains a healthy lowest balance of{" "}
                       <strong className="text-indigo-300 font-mono">
                         ${simulationVerdict.payIn4Lowest.toFixed(2)}
                       </strong>
@@ -590,9 +588,6 @@ function DashboardContent() {
               <p className="text-xs text-slate-400">
                 Visualizing daily balance against recurring bills and minimum safety threshold ($500).
               </p>
-            </div>
-            <div className="text-xs text-slate-500 hidden sm:block">
-              Green = Baseline • Red = Full Pay Impact • Blue = Pay in 4 Safe Curve
             </div>
           </div>
 

@@ -13,8 +13,6 @@ import {
   ArrowLeft,
   Sparkles,
   ShieldCheck,
-  Percent,
-  Store,
   TrendingUp,
   CreditCard,
   CheckCircle2,
@@ -246,32 +244,28 @@ export default function StorefrontPage() {
           <div className="flex items-center gap-2.5 text-xs">
             <Link
               href="/copilot"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-gradient-to-r from-violet-600/30 to-indigo-600/30 hover:from-violet-600/50 hover:to-indigo-600/50 border border-violet-500/50 text-violet-200 font-semibold transition shadow-md group"
+              className="relative inline-flex p-[2px] rounded-lg group shadow-[0_0_12px_rgba(147,51,234,0.4),0_0_6px_rgba(59,130,246,0.3)] hover:shadow-[0_0_18px_rgba(168,85,247,0.65)] transition-shadow"
             >
-              <Sparkles className="w-3.5 h-3.5 text-violet-300 group-hover:rotate-12 transition-transform" />
-              <span>Guardian Copilot</span>
-              <span className="px-1.5 py-0.2 rounded text-[10px] bg-violet-500/25 text-violet-300 font-bold border border-violet-500/40">
-                AI AGENT
+              <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+              <span className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-[#040711] group-hover:bg-transparent rounded-[6px] text-white font-semibold transition duration-200">
+                <Sparkles className="w-3.5 h-3.5 text-white group-hover:rotate-12 transition-transform" />
+                <span>Guardian Copilot</span>
+                <span className="px-1.5 py-0.5 leading-none rounded text-[10px] bg-white/10 text-white font-bold border border-white/20">
+                  AI AGENT
+                </span>
               </span>
             </Link>
 
             <Link
               href="/dashboard"
-              className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-full bg-[#0070BA] hover:bg-[#005ea6] text-white font-semibold transition shadow-md"
+              className="relative inline-flex p-[2px] rounded-lg group shadow-[0_0_12px_rgba(147,51,234,0.4),0_0_6px_rgba(59,130,246,0.3)] hover:shadow-[0_0_18px_rgba(168,85,247,0.65)] transition-shadow"
             >
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-200" />
-              <span>AG Grid Dashboard</span>
+              <span className="absolute inset-0 rounded-lg bg-gradient-to-r from-blue-500 via-indigo-500 to-purple-500" />
+              <span className="relative flex items-center gap-1.5 px-3.5 py-1.5 bg-[#040711] group-hover:bg-transparent rounded-[6px] text-white font-semibold transition duration-200">
+                <ShieldCheck className="w-3.5 h-3.5 text-white" />
+                <span>AG Grid Dashboard</span>
+              </span>
             </Link>
-
-            <div className="hidden lg:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#064e3b] border border-[#059669]/60 text-[#34d399]">
-              <Percent className="w-3.5 h-3.5 text-[#34d399]" />
-              <span>Affiliate Monetization Active</span>
-            </div>
-
-            <div className="hidden md:flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-[#0c182e] border border-[#172b4d] text-[#8ea9cb]">
-              <Store className="w-3.5 h-3.5 text-[#38bdf8]" />
-              <span>25,000+ Retailers</span>
-            </div>
           </div>
         </div>
       </header>
@@ -442,8 +436,8 @@ export default function StorefrontPage() {
                       onClick={() => setActiveCategoryQuery(cat.query)}
                       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition ${
                         isActive
-                          ? "bg-[#003087] text-white shadow-md border border-[#003087]"
-                          : "bg-[#0070BA] hover:bg-[#005ea6] text-white shadow-md"
+                          ? "bg-[#0070BA] text-white shadow-md"
+                          : "bg-[#0b1629] hover:bg-[#10203a] text-[#8ea9cb] hover:text-white border border-[#172b4d]"
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />

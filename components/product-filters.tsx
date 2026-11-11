@@ -170,8 +170,8 @@ function filterPillClass(selected: boolean) {
   return cn(
     FILTER_PILL_BASE,
     selected
-      ? "border-[#003087] bg-[#003087] text-white"
-      : "border-[#0070BA] bg-[#0070BA] text-white hover:bg-[#005ea6] hover:border-[#005ea6]",
+      ? "border-foreground/40 bg-accent text-accent-foreground"
+      : "border-input bg-transparent text-foreground hover:bg-accent hover:text-accent-foreground",
   );
 }
 
