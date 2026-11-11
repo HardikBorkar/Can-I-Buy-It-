@@ -275,7 +275,7 @@ export function CopilotMessageStream({
       </div>
 
       {/* 2. Docked Clean Input Container at Bottom (ChatGPT / Claude / Gemini style) */}
-      <div className="p-4 bg-[#0A0A0C]/95 border-t border-zinc-850/80 backdrop-blur-xl">
+      <div className="p-4 bg-[#0A0A0C]/95 backdrop-blur-xl">
         <div className="max-w-3xl mx-auto w-full relative">
           <div className="bg-zinc-900/90 border border-zinc-800 hover:border-zinc-700 focus-within:border-zinc-600 rounded-2xl shadow-xl transition-all duration-200 p-3">
             <textarea
@@ -287,7 +287,7 @@ export function CopilotMessageStream({
               className="w-full bg-transparent text-[14.5px] text-zinc-100 placeholder-zinc-500 focus:outline-none resize-none leading-relaxed px-1 pt-1 pb-2"
             />
 
-            <div className="flex items-center justify-between pt-2 border-t border-zinc-850/60">
+            <div className="flex items-center justify-between pt-2">
               {/* Left Attach Clip */}
               <button
                 type="button"

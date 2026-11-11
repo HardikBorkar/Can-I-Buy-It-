@@ -238,9 +238,9 @@ export default function StorefrontPage() {
               <span className="hidden sm:inline">Home</span>
             </Link>
 
-            <div className="w-9 h-9 rounded-xl bg-[#003087] border border-[#0070BA] flex items-center justify-center shadow-md overflow-hidden p-1">
+            <div className="w-9 h-9 rounded-xl overflow-hidden border border-[#0070BA]/70 flex items-center justify-center shadow-md shrink-0">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/logos/clean/paypal.png" alt="PayPal" className="w-full h-full object-contain" />
+              <img src="/logos/clean/paypal-square.png" alt="PayPal" className="w-full h-full object-cover" />
             </div>
             <div>
               <div className="flex items-center gap-2">
@@ -496,8 +496,8 @@ export default function StorefrontPage() {
                       onClick={() => setActiveCategoryQuery(cat.query)}
                       className={`inline-flex items-center gap-1.5 px-3.5 py-2 rounded-xl text-xs font-semibold shrink-0 transition ${
                         isActive
-                          ? "bg-[#0070BA] text-white shadow-md"
-                          : "bg-[#0b1629] hover:bg-[#10203a] text-[#8ea9cb] hover:text-white border border-[#172b4d]"
+                          ? "bg-[#003087] text-white shadow-md border border-[#003087]"
+                          : "bg-[#0070BA] hover:bg-[#005ea6] text-white shadow-md"
                       }`}
                     >
                       <Icon className="w-3.5 h-3.5" />

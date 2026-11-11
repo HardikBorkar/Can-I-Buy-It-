@@ -90,7 +90,7 @@ export function SearchBar({
             type="button"
             variant="outline"
             size="icon"
-            className="size-10 shrink-0"
+            className="size-10 shrink-0 bg-[#0070BA] hover:bg-[#005ea6] dark:bg-[#0070BA] dark:hover:bg-[#005ea6] border-[#0070BA] text-white hover:text-white dark:text-white dark:border-[#0070BA]"
             aria-label="Search by image"
             onClick={() => fileInput.current?.click()}
           >

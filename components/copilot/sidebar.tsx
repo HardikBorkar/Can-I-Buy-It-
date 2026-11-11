@@ -2,7 +2,6 @@
 
 import React, { useState } from "react";
 import {
-  Shield,
   Plus,
   MessageSquare,
   Pencil,
@@ -78,29 +77,18 @@ export function CopilotSidebar({
       }`}
     >
       {/* 1. Top Branding & New Chat Button */}
-      <div className="p-3 border-b border-zinc-850/60 space-y-2.5">
+      <div className="p-3 space-y-2.5">
         {/* Workspace Branding */}
         <div
           className={`flex items-center justify-between ${
             isCollapsed ? "justify-center" : "px-1"
           }`}
         >
-          <div className="flex items-center gap-2.5 min-w-0">
-            <div className="w-7 h-7 rounded-lg bg-gradient-to-tr from-violet-600 via-indigo-600 to-emerald-500 p-[1px] shrink-0 shadow-sm shadow-violet-500/20">
-              <div className="w-full h-full bg-[#0E0E12] rounded-[7px] flex items-center justify-center">
-                <Shield className="w-3.5 h-3.5 text-violet-400" />
-              </div>
-            </div>
-
+          <div className="flex items-center min-w-0">
             {!isCollapsed && (
-              <div className="truncate">
-                <span className="font-semibold text-xs text-zinc-100 tracking-tight block truncate">
-                  Guardian Copilot
-                </span>
-                <span className="text-[10px] text-zinc-500 font-mono block">
-                  v2.4
-                </span>
-              </div>
+              <span className="font-semibold text-xs text-zinc-100 tracking-tight block truncate">
+                Guardian Copilot
+              </span>
             )}
           </div>
 
@@ -323,7 +311,7 @@ export function CopilotSidebar({
       </div>
 
       {/* 3. Bottom Footer: Minimal User Profile & Collapse Toggle */}
-      <div className="p-2 border-t border-zinc-850/60 flex items-center justify-between gap-1">
+      <div className="p-2 flex items-center justify-between gap-1">
         {!isCollapsed ? (
           <>
             <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs min-w-0">

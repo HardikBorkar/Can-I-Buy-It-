@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useState } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence } from "framer-motion";
 import { ShieldCheck, Check, Sparkles } from "lucide-react";
 
 interface PaymentSuccessTickProps {
