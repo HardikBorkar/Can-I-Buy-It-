@@ -1,6 +1,6 @@
 "use client";
 
-import React, { type ReactNode } from "react";
+import React from "react";
 import Link from "next/link";
 import { motion, useReducedMotion } from "framer-motion";
 import { Sparkles, ShoppingBag, ArrowRight, CheckCircle2 } from "lucide-react";
@@ -8,61 +8,20 @@ import { BackgroundCubesGrid } from "@/components/ui/background-cubes-grid";
 
 type Platform = {
   word: string;
-  bg: string;
   logoUrl: string;
 };
 
 const platforms: Platform[] = [
-  { word: "PayPal", bg: "#003087", logoUrl: "/logos/clean/paypal.png" },
-  { word: "Channel3", bg: "#0284c7", logoUrl: "/logos/clean/channel3.png" },
-  { word: "AG Grid", bg: "#1e293b", logoUrl: "/logos/clean/aggrid.png" },
-  { word: "Render", bg: "#111827", logoUrl: "/logos/clean/render.png" },
+  { word: "PayPal", logoUrl: "/logos/clean/paypal.png" },
+  { word: "Channel3", logoUrl: "/logos/clean/channel3.png" },
+  { word: "AG Grid", logoUrl: "/logos/clean/aggrid.png" },
+  { word: "Render", logoUrl: "/logos/clean/render.png" },
 ];
 
 const EASE_OUT = [0.215, 0.61, 0.355, 1] as const;
-const STAGGER = 0.09;
-const START = 0.12;
-
-function InlinePill({ platform, delay }: { platform: Platform; delay: number }) {
-  const reduceMotion = useReducedMotion();
-  return (
-    <motion.span
-      initial={reduceMotion ? false : { opacity: 0, y: 8, filter: "blur(4px)" }}
-      animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-      transition={{ duration: 0.6, ease: EASE_OUT, delay }}
-      className="inline-flex translate-y-[-0.06em] items-center gap-[0.38em] rounded-full py-[0.14em] pr-[0.55em] pl-[0.16em] align-middle leading-none bg-white text-slate-900 border border-slate-200/90 shadow-[0_2px_14px_rgba(0,0,0,0.35)] transition duration-200 hover:scale-105 hover:shadow-xl cursor-default"
-    >
-      <span
-        className="inline-flex size-[1.25em] items-center justify-center rounded-full overflow-hidden bg-slate-50 ring-1 ring-slate-200/80 p-[0.16em] shrink-0 shadow-inner"
-      >
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img
-          src={platform.logoUrl}
-          alt={platform.word}
-          className="size-full object-contain"
-        />
-      </span>
-      <span className="font-semibold text-[0.88em] tracking-tight text-slate-900 select-none">
-        {platform.word}
-      </span>
-    </motion.span>
-  );
-}
 
 export function LandingHero() {
   const reduceMotion = useReducedMotion();
-  const [paypal, channel3, agGrid, renderPlatform] = platforms;
-
-  const pill = (p: Platform, hasComma = false): ReactNode => (
-    <span className="inline-flex items-baseline whitespace-nowrap mx-[0.1em]">
-      <InlinePill platform={p} delay={START + platforms.indexOf(p) * STAGGER} />
-      {hasComma && (
-        <span className="text-[0.62em] font-normal text-slate-400 select-none ml-[0.04em] mr-[0.16em] translate-y-[-0.06em]">
-          ,
-        </span>
-      )}
-    </span>
-  );
 
   const fadeUp = (delay: number) => ({
     initial: reduceMotion ? false : { opacity: 0, y: 12 },
@@ -79,23 +38,43 @@ export function LandingHero() {
       <div className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[650px] h-[380px] bg-gradient-to-tr from-sky-500/12 via-violet-600/12 to-teal-500/12 blur-[130px] pointer-events-none -z-10" />
 
       <div className="pointer-events-none mx-auto flex max-w-[1100px] flex-col items-center text-center antialiased">
-        {/* Dynamic Sponsor Headline - Modern Professional Sans-Serif */}
-        <h1 className="max-w-[26ch] text-[clamp(32px,4.8vw,62px)] leading-[1.3] font-bold tracking-[-0.03em] text-balance text-white font-sans">
-          Simulate, shop, and transact across {pill(paypal, true)} {pill(channel3, true)} {pill(agGrid, true)} and {pill(renderPlatform)} before you spend.
-        </h1>
+        {/* Clean Hero Headline */}
+        <motion.h1
+          {...fadeUp(0.15)}
+          className="max-w-[800px] text-[clamp(36px,5.2vw,64px)] leading-[1.15] font-bold tracking-[-0.03em] text-white font-sans"
+        >
+          Simulate, shop, and <br className="hidden sm:inline" />
+          transact before you spend.
+        </motion.h1>
 
         {/* Subtitle */}
         <motion.p
-          {...fadeUp(0.4)}
+          {...fadeUp(0.35)}
           className="mt-6 max-w-[680px] text-[clamp(15px,1.4vw,18px)] leading-[1.6] text-pretty text-slate-400 font-sans"
         >
           Guardian Copilot is an autonomous financial agent for PayPal. Protect your sacred{" "}
           <strong className="text-emerald-400 font-semibold">$500 safety buffer floor</strong>, discover live multi-merchant deals on Channel3, and evaluate cash flow with interactive AG Grid tables.
         </motion.p>
 
+        {/* Integration Partners Row */}
+        <motion.div
+          {...fadeUp(0.5)}
+          className="mt-7 flex flex-wrap items-center justify-center gap-7 sm:gap-9 text-slate-300"
+        >
+          {platforms.map((p) => (
+            <div key={p.word} className="flex items-center gap-2.5 text-slate-300 hover:text-white transition-colors">
+              <div className="size-6 sm:size-7 rounded-full bg-slate-900 border border-slate-700/80 p-1 flex items-center justify-center shadow-md">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src={p.logoUrl} alt={p.word} className="size-full object-contain" />
+              </div>
+              <span className="text-sm sm:text-base font-semibold tracking-tight text-slate-200">{p.word}</span>
+            </div>
+          ))}
+        </motion.div>
+
         {/* Two Call-to-Action Buttons */}
         <motion.div
-          {...fadeUp(0.6)}
+          {...fadeUp(0.65)}
           className="pointer-events-auto mt-9 flex flex-col items-center gap-3.5 sm:flex-row w-full sm:w-auto justify-center"
         >
           {/* Button 1: Go to Storefront */}
@@ -123,7 +102,7 @@ export function LandingHero() {
 
         {/* Features / Guarantee Micro-pills */}
         <motion.div
-          {...fadeUp(0.75)}
+          {...fadeUp(0.8)}
           className="mt-8 flex flex-wrap items-center justify-center gap-4 text-[12px] text-slate-500 font-sans"
         >
           <div className="flex items-center gap-1.5">
