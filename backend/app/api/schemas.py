@@ -22,6 +22,7 @@ class ChatResponse(BaseModel):
     retrieved_context: List[str] = []
     scraped_data: Optional[Dict[str, Any]] = None
     multi_agent_trace: Optional[List[Dict[str, Any]]] = None
+    action_card: Optional[Dict[str, Any]] = None
 
 
 class ActionApprovalRequest(BaseModel):

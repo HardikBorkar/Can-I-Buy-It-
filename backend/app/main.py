@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.core.config import settings
 from backend.app.core.database import db_manager
-from backend.app.api.routes import copilot, actions
+from backend.app.api.routes import copilot, actions, auth
 
 # Setup enterprise structured logging
 logging.basicConfig(
@@ -51,6 +51,7 @@ app.add_middleware(
 # Register API Routers
 app.include_router(copilot.router)
 app.include_router(actions.router)
+app.include_router(auth.router)
 
 
 @app.get("/health", tags=["Health"])

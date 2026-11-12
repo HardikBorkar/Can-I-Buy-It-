@@ -5,6 +5,7 @@ from backend.app.api.schemas import ActionApprovalRequest, ActionApprovalRespons
 from backend.app.core.database import db_manager
 from backend.app.agent.graph import guardian_agent_graph
 from backend.app.agent.tools.paypal_client import paypal_client
+from backend.app.agent.nodes.analytics_node import categorize_transaction
 
 logger = logging.getLogger("guardian.api.actions")
 
@@ -112,6 +113,26 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
             )
             msg = f"Order captured with capture ID {execution_result.get('capture_id')}."
 
+            # Write-Through capture logging into SQLite
+            capture_id = execution_result.get("capture_id") or raw_payload.get("order_id", "")
+            merchant = raw_payload.get("merchant") or raw_payload.get("recipient") or "Verified PayPal Vendor"
+            item_name = raw_payload.get("item_name") or raw_payload.get("description") or "Sandbox Purchase"
+            amt = float(raw_payload.get("amount") or execution_result.get("amount", 0.0))
+            currency = raw_payload.get("currency") or execution_result.get("currency", "USD")
+            category = categorize_transaction(merchant, item_name)
+
+            try:
+                await db_manager.record_transaction(
+                    paypal_id=capture_id,
+                    merchant=merchant,
+                    item=item_name,
+                    amount=amt,
+                    currency=currency,
+                    category=category,
+                )
+            except Exception as log_err:
+                logger.warning("Could not write-through log captured order %s: %s", capture_id, log_err)
+
         elif action_type == "send_invoice":
             execution_result = await paypal_client.create_and_send_invoice(
                 recipient_email=raw_payload.get("recipient_email", "client@venturecap.io"),
@@ -120,6 +141,27 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
                 note=raw_payload.get("note", "Billed via Guardian Copilot Autonomous Invoicing"),
             )
             msg = f"Invoice #{execution_result.get('invoice_number')} sent to {execution_result.get('recipient')}."
+
+            # Write-Through capture logging into SQLite
+            inv_id = execution_result.get("invoice_id")
+            if inv_id:
+                recipient = raw_payload.get("recipient_email") or execution_result.get("recipient") or "Client"
+                items = raw_payload.get("items", [])
+                item_desc = items[0].get("name") if items else raw_payload.get("note", "Consulting Deliverables")
+                total_amt = sum(float(it.get("unit_amount", 0.0)) * int(it.get("quantity", 1)) for it in items) if items else float(raw_payload.get("amount", 0.0))
+                currency = raw_payload.get("currency", "USD")
+
+                try:
+                    await db_manager.record_transaction(
+                        paypal_id=inv_id,
+                        merchant=recipient,
+                        item=item_desc,
+                        amount=total_amt,
+                        currency=currency,
+                        category="Services & Invoices",
+                    )
+                except Exception as log_err:
+                    logger.warning("Could not write-through log invoice %s: %s", inv_id, log_err)
 
         elif action_type in ("authorize_escrow", "escrow_authorize"):
             from backend.app.agent.tools.paypal_tools import authorize_escrow

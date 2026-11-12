@@ -17,23 +17,37 @@ AgentActionStatus = Literal[
     "failed",
 ]
 
+AgentIntent = Literal[
+    "INVOICE_CREATE",
+    "ORDER_INSPECT",
+    "PURCHASE_CHECKOUT",
+    "EXPENDITURE_ANALYTICS",
+    "CLARIFICATION_NEEDED",
+]
+
 class AgentState(TypedDict):
     """
     Enterprise State Machine schema for Guardian Copilot.
-    Orchestrates multi-agent swarm debate (Trader, Auditor, Arbiter),
-    scraping results, semantic memory, and HITL gate states.
+    Orchestrates 3-way intent routing (INVOICE_CREATE, ORDER_INSPECT, PURCHASE_CHECKOUT),
+    multi-agent swarm debate (Trader, Auditor, Arbiter), and HITL safety gate.
     """
     messages: Annotated[List[BaseMessage], add_messages]
     user_id: str
     thread_id: str
-    active_agent: str  # "guardian_core" | "autonomous_trader" | "invoicing" | "insights"
+    active_agent: str
+    intent: Optional[AgentIntent]
+    intent_data: Optional[Dict[str, Any]]
     scraped_data: Optional[Dict[str, Any]]
     retrieved_context: List[str]
     pending_action: Optional[Dict[str, Any]]  # Holds payload when HITL gate triggers
     action_status: AgentActionStatus  # Explicit Finite State Machine lifecycle
     final_response: Optional[str]
+    action_card: Optional[Dict[str, Any]]
+    order_inspection: Optional[Dict[str, Any]]
+    current_balance: Optional[float]
+    tools_called: Optional[List[Dict[str, Any]]]
 
-    # Multi-Agent Consensus Swarm Fields
+    # Multi-Agent Consensus Swarm Fields (PURCHASE_CHECKOUT)
     trader_proposal: Optional[Dict[str, Any]]
     audit_feedback: Optional[Dict[str, Any]]
     debate_turns: int
@@ -62,7 +76,8 @@ class PendingActionPayload(BaseModel):
     amount: float = Field(default=0.0)
     currency: str = Field(default="USD")
     recipient: Optional[str] = None
-    risk_score: int = Field(default=98, description="Safety score out of 100")
+    merchant: Optional[str] = None
+    item: Optional[str] = None
     safety_buffer_intact: bool = Field(default=True)
     post_balance_floor: float = Field(default=500.0)
     requires_approval: bool = Field(default=True)
