@@ -73,6 +73,15 @@ def classify_user_intent(query: str) -> IntentClassification:
         "how much did i spend",
         "last month",
         "last months",
+        "cash flow",
+        "cash flow trajectory",
+        "cash flow safety",
+        "audit dispute risk",
+        "dispute risk",
+        "risk audit",
+        "audit risk",
+        "audit transaction",
+        "audit transactions",
     ]
     is_analytics = any(trigger in lower for trigger in analytics_triggers) and not (
         lower.startswith("buy") or lower.startswith("purchase") or "draft a paypal invoice" in lower
@@ -134,7 +143,7 @@ def classify_user_intent(query: str) -> IntentClassification:
         ("order #" in lower or "order id" in lower or re.search(r"\border\s*#?[\da-zA-Z_-]+\b", lower))
         and ("buy" not in lower and "purchase" not in lower and "checkout" not in lower)
     ) or (
-        any(k in lower for k in ["check", "audit", "inspect", "status of", "verify"])
+        any(k in lower for k in ["check", "audit", "inspect", "status of", "verify", "readiness"])
         and "order" in lower
         and "buy" not in lower
         and "purchase" not in lower
@@ -157,13 +166,21 @@ def classify_user_intent(query: str) -> IntentClassification:
     # -------------------------------------------------------------------------
     # 4. PURCHASE_CHECKOUT (Outgoing Funds / Commerce Checkout)
     # -------------------------------------------------------------------------
-    is_purchase = any(k in lower for k in ["buy", "purchase", "order", "checkout", "pay"])
+    is_purchase = any(k in lower for k in [
+        "buy", "purchase", "order", "checkout", "pay", "afford", "can i get", "should i get", "want to buy", "get a"
+    ])
     if is_purchase:
         qty_match = re.search(r"(\d+)\s*x\b", lower) or re.search(r"(\d+)\s*(?:units?|pieces?|nodes?|items?)", lower)
         quantity = int(qty_match.group(1)) if qty_match else 1
 
-        unit_match = re.search(r"at\s+\$?(\d+(?:\.\d{1,2})?)\s*(?:each)?", lower) or re.search(r"for\s+\$?(\d+(?:\.\d{1,2})?)", lower)
-        unit_price = float(unit_match.group(1)) if unit_match else None
+        # Flexible unit price extraction ($850, for 850, at $850, 850 dollars)
+        unit_match = (
+            re.search(r"\$\s*(\d+(?:,\d{3})*(?:\.\d{1,2})?)", query)
+            or re.search(r"at\s+\$?(\d+(?:\.\d{1,2})?)\s*(?:each)?", lower)
+            or re.search(r"for\s+\$?(\d+(?:\.\d{1,2})?)", lower)
+            or re.search(r"(\d+(?:\.\d{1,2})?)\s*(?:dollars|usd)", lower)
+        )
+        unit_price = float(unit_match.group(1).replace(",", "")) if unit_match else None
 
         stated_match = re.search(r"(?:stated total|total)\s+\$?(\d+(?:\.\d{1,2})?)", lower)
         stated_total = float(stated_match.group(1)) if stated_match else None
@@ -171,12 +188,23 @@ def classify_user_intent(query: str) -> IntentClassification:
         bal_match = re.search(r"balance\s+(?:is\s+)?\$?(\d+(?:\.\d{1,2})?)", lower)
         current_balance = float(bal_match.group(1)) if bal_match else None
 
+        # Extract item from regex or catalog
         item_match = re.search(
-            r"(?:buy|purchase|order|checkout|get)\s+(?:\d+x\s+)?(?:a\s+|an\s+|the\s+)?([A-Za-z0-9\s_-]+?)(?:\s+at|\s+for|\s+from|\s+when|\s+with|\.|$)",
+            r"(?:buy|purchase|order|checkout|get|afford)\s+(?:\d+x\s+)?(?:a\s+|an\s+|the\s+)?([A-Za-z0-9\s_-]+?)(?:\s+at|\s+for|\s+from|\s+when|\s+with|\.|$)",
             query,
             re.IGNORECASE,
         )
         item_name = item_match.group(1).strip() if item_match else None
+
+        # If regex extracted a dollar amount or empty, check catalog items
+        from backend.app.agent.nodes.auditor_node import BENCHMARK_CATALOG
+        catalog_items = sorted(BENCHMARK_CATALOG.keys(), key=len, reverse=True)
+        matched_catalog_item = next((it for it in catalog_items if it in lower), None)
+        if matched_catalog_item:
+            if not item_name or re.match(r"^\$?\d+", item_name):
+                item_name = matched_catalog_item.title()
+            if unit_price is None and stated_total is None:
+                unit_price = BENCHMARK_CATALOG[matched_catalog_item]
 
         merchant_match = re.search(r"from\s+([A-Za-z0-9\s_-]+?)(?:\s+when|\s+with|\.|$)", query, re.IGNORECASE)
         merchant = merchant_match.group(1).strip() if merchant_match else None

@@ -527,7 +527,7 @@ export function ActionCardRenderer({
 
     const approveLink =
       data.approveUrl ||
-      `https://www.sandbox.paypal.com/checkoutnow?token=${data.orderId}`;
+      `/checkout/success?token=${data.orderId}&PayerID=SANDBOX-PAYER`;
 
     return (
       <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-2xl bg-[#0D0D12] border border-zinc-800 shadow-2xl space-y-3.5 transition-all duration-200">

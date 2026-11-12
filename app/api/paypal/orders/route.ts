@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({
       orderId: mockId,
       status: "CREATED",
-      approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
+      approveUrl: `/checkout/success?token=${mockId}&PayerID=SANDBOX-PAYER`,
       payIn4: Boolean(payIn4),
       installmentAmount: Math.round((parsedAmount / 4) * 100) / 100,
     });

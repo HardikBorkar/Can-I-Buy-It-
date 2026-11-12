@@ -133,7 +133,7 @@ export async function createPayPalOrder(params: {
       return {
         orderId: mockId,
         status: "CREATED",
-        approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
+        approveUrl: `/checkout/success?token=${mockId}&PayerID=SANDBOX-PAYER`,
         payIn4,
         installmentAmount,
       };
@@ -194,7 +194,7 @@ export async function createPayPalOrder(params: {
       return {
         orderId: mockId,
         status: "CREATED",
-        approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
+        approveUrl: `/checkout/success?token=${mockId}&PayerID=SANDBOX-PAYER`,
         payIn4,
         installmentAmount,
       };
@@ -218,7 +218,7 @@ export async function createPayPalOrder(params: {
     return {
       orderId: mockId,
       status: "CREATED",
-      approveUrl: `https://www.sandbox.paypal.com/checkoutnow?token=${mockId}`,
+      approveUrl: `/checkout/success?token=${mockId}&PayerID=SANDBOX-PAYER`,
       payIn4,
       installmentAmount,
     };
