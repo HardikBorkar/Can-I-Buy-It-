@@ -1,0 +1,57 @@
+services:
+  # ---------------------------------------------------------------------------
+  # 1. FastAPI Multi-Agent LangGraph Swarm Backend
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: can-i-buy-it-backend
+    runtime: python
+    region: oregon
+    plan: starter
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn backend.app.main:app --host 0.0.0.0 --port $PORT
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.12.0
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_API_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: DEFAULT_MINIMUM_SAFETY_BALANCE
+        value: "500.00"
+      - key: DEFAULT_CURRENCY
+        value: USD
+      - key: SIMULATION_HORIZON_DAYS
+        value: "90"
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+      - key: OPENROUTER_API_KEY
+        sync: false
+      - key: FIRECRAWL_API_KEY
+        sync: false
+
+  # ---------------------------------------------------------------------------
+  # 2. Next.js 15 Copilot & Storefront Frontend
+  # ---------------------------------------------------------------------------
+  - type: web
+    name: can-i-buy-it-frontend
+    runtime: node
+    region: oregon
+    plan: starter
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_VERSION
+        value: "20"
+      - key: BACKEND_URL
+        value: https://can-i-buy-it-backend.onrender.com
+      - key: PAYPAL_MODE
+        value: sandbox
+      - key: PAYPAL_API_BASE_URL
+        value: https://api-m.sandbox.paypal.com
+      - key: PAYPAL_CLIENT_ID
+        sync: false
+      - key: PAYPAL_CLIENT_SECRET
+        sync: false
+

@@ -18,7 +18,8 @@ export type ActionCardType =
   | "webhook_inspect"
   | "balance_snapshot"
   | "affordability"
-  | "product_recommendation";
+  | "product_recommendation"
+  | "bento_analytics";
 
 export interface OrderCardData {
   orderId: string;
@@ -159,9 +160,67 @@ export interface ProductRecommendationData {
   products: RecommendedProduct[];
 }
 
+export interface OrderInspectionData {
+  orderId: string;
+  status: string;
+  found: boolean;
+  amount?: number;
+  currency?: string;
+  description?: string;
+  error?: string;
+}
+
+export interface InvoiceApprovalData {
+  recipientEmail: string;
+  description: string;
+  amount: number;
+  currency?: string;
+  invoiceId?: string;
+  paymentUrl?: string;
+}
+
+export interface CheckoutApprovalData {
+  merchant: string;
+  item: string;
+  amount: number;
+  currency?: string;
+  postPurchaseReserve?: number;
+  orderId?: string;
+  approveUrl?: string;
+}
+
+export interface ExpenditureSeriesItem {
+  label: string;
+  amount: number;
+  category: string;
+}
+
+export interface ExpenditureCategoryItem {
+  category: string;
+  amount: number;
+  percentage?: number;
+}
+
+export interface ExpenditureChartData {
+  title?: string;
+  period?: string;
+  total_spent?: number;
+  totalSpent?: number;
+  currency?: string;
+  source?: string;
+  data_source?: string;
+  categories?: ExpenditureCategoryItem[];
+  series?: ExpenditureSeriesItem[];
+}
+
 export interface ActionCardPayload {
-  type: ActionCardType;
-  event?: "APPROVAL_REQUIRED" | "EXECUTED";
+  type: ActionCardType | string;
+  event?: "APPROVAL_REQUIRED" | "EXECUTED" | "order_inspection_result" | "invoice_approval_required" | "checkout_approval_required" | "expenditure_chart" | string;
+  orderInspectionData?: OrderInspectionData;
+  invoiceApprovalData?: InvoiceApprovalData;
+  checkoutApprovalData?: CheckoutApprovalData;
+  chartData?: ExpenditureChartData;
+  chart_data?: ExpenditureChartData;
   orderCardData?: OrderCardData;
   invoicePreviewData?: InvoicePreviewData;
   transactionInsightData?: TransactionInsightData;

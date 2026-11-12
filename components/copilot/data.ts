@@ -30,7 +30,7 @@ export const PREVIOUS_CHAT_SESSIONS: HistorySession[] = [
             orderId: "8492-PP-SANDBOX",
             amount: 850.0,
             currency: "USD",
-            merchant: "Sony Digital Direct (Channel3 Verified)",
+            merchant: "Electronics Vendor (Channel3 Verified)",
             status: "APPROVED",
             safetyScore: 98,
             riskTier: "MINIMAL",

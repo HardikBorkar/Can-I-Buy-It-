@@ -3,7 +3,9 @@ from typing import List, Optional
 from fastapi import APIRouter, HTTPException, status
 from backend.app.api.schemas import ActionApprovalRequest, ActionApprovalResponse, ActionItemResponse
 from backend.app.core.database import db_manager
+from backend.app.agent.graph import guardian_agent_graph
 from backend.app.agent.tools.paypal_client import paypal_client
+from backend.app.agent.nodes.analytics_node import categorize_transaction
 
 logger = logging.getLogger("guardian.api.actions")
 
@@ -30,13 +32,15 @@ async def get_action(action_id: str):
 
 
 @router.post("/{action_id}", response_model=ActionApprovalResponse)
+@router.post("/{action_id}/decide", response_model=ActionApprovalResponse)
 async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
     """
     Human-In-The-Loop Approval Gateway.
-    When a user approves an action:
+    When a user approves or rejects an action:
     - Verifies action exists and is awaiting approval
-    - Invokes PayPal REST v2 with idempotent payload
-    - Records execution result and updates audit database
+    - Updates SQLite audit database
+    - Resumes the interrupted LangGraph state machine for this thread
+    - Invokes PayPal REST v2 Sandbox tools with idempotent payloads
     """
     action = await db_manager.get_pending_action(action_id)
     if not action:
@@ -52,6 +56,9 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
             detail=f"Action '{action_id}' is already {current_status}.",
         )
 
+    thread_id = action.get("thread_id")
+    config = {"configurable": {"thread_id": thread_id}} if thread_id else None
+
     # 1. Handle Rejection
     if req.decision == "reject":
         await db_manager.update_action_status(
@@ -59,6 +66,20 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
             status="rejected",
             feedback=req.feedback or "Rejected by user.",
         )
+
+        # Resume interrupted LangGraph state as rejected
+        if config:
+            try:
+                await guardian_agent_graph.aupdate_state(
+                    config,
+                    {"action_status": "rejected", "final_response": "Action rejected by user."},
+                    as_node="hitl_gate",
+                )
+                await guardian_agent_graph.ainvoke(None, config=config)
+                logger.info("Resumed LangGraph state machine after rejection on thread %s", thread_id)
+            except Exception as e:
+                logger.warning("LangGraph state resume (reject) notice for %s: %s", thread_id, e)
+
         return ActionApprovalResponse(
             action_id=action_id,
             status="rejected",
@@ -92,6 +113,26 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
             )
             msg = f"Order captured with capture ID {execution_result.get('capture_id')}."
 
+            # Write-Through capture logging into SQLite
+            capture_id = execution_result.get("capture_id") or raw_payload.get("order_id", "")
+            merchant = raw_payload.get("merchant") or raw_payload.get("recipient") or "Verified PayPal Vendor"
+            item_name = raw_payload.get("item_name") or raw_payload.get("description") or "Sandbox Purchase"
+            amt = float(raw_payload.get("amount") or execution_result.get("amount", 0.0))
+            currency = raw_payload.get("currency") or execution_result.get("currency", "USD")
+            category = categorize_transaction(merchant, item_name)
+
+            try:
+                await db_manager.record_transaction(
+                    paypal_id=capture_id,
+                    merchant=merchant,
+                    item=item_name,
+                    amount=amt,
+                    currency=currency,
+                    category=category,
+                )
+            except Exception as log_err:
+                logger.warning("Could not write-through log captured order %s: %s", capture_id, log_err)
+
         elif action_type == "send_invoice":
             execution_result = await paypal_client.create_and_send_invoice(
                 recipient_email=raw_payload.get("recipient_email", "client@venturecap.io"),
@@ -100,6 +141,53 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
                 note=raw_payload.get("note", "Billed via Guardian Copilot Autonomous Invoicing"),
             )
             msg = f"Invoice #{execution_result.get('invoice_number')} sent to {execution_result.get('recipient')}."
+
+            # Write-Through capture logging into SQLite
+            inv_id = execution_result.get("invoice_id")
+            if inv_id:
+                recipient = raw_payload.get("recipient_email") or execution_result.get("recipient") or "Client"
+                items = raw_payload.get("items", [])
+                item_desc = items[0].get("name") if items else raw_payload.get("note", "Consulting Deliverables")
+                total_amt = sum(float(it.get("unit_amount", 0.0)) * int(it.get("quantity", 1)) for it in items) if items else float(raw_payload.get("amount", 0.0))
+                currency = raw_payload.get("currency", "USD")
+
+                try:
+                    await db_manager.record_transaction(
+                        paypal_id=inv_id,
+                        merchant=recipient,
+                        item=item_desc,
+                        amount=total_amt,
+                        currency=currency,
+                        category="Services & Invoices",
+                    )
+                except Exception as log_err:
+                    logger.warning("Could not write-through log invoice %s: %s", inv_id, log_err)
+
+        elif action_type in ("authorize_escrow", "escrow_authorize"):
+            from backend.app.agent.tools.paypal_tools import authorize_escrow
+            execution_result = await authorize_escrow(
+                amount=float(raw_payload.get("amount", 500.0)),
+                currency=raw_payload.get("currency", "USD"),
+                payee_email=raw_payload.get("payee_email", "contractor@venturecap.io"),
+                milestone_id=raw_payload.get("milestone_id", "milestone-1"),
+            )
+            msg = f"Escrow authorization #{execution_result.get('authorization_id')} successfully created in PayPal Sandbox."
+
+        elif action_type in ("release_escrow", "escrow_release"):
+            from backend.app.agent.tools.paypal_tools import release_escrow
+            execution_result = await release_escrow(
+                authorization_id=raw_payload.get("authorization_id", ""),
+            )
+            msg = f"Escrow funds released to contractor with Capture #{execution_result.get('capture_id')}."
+
+        elif action_type in ("split_group_payment", "split_payment"):
+            from backend.app.agent.tools.paypal_tools import split_group_payment
+            execution_result = await split_group_payment(
+                total_amount=float(raw_payload.get("total_amount", 100.0)),
+                participants=raw_payload.get("participants", []),
+                currency=raw_payload.get("currency", "USD"),
+            )
+            msg = f"Group split payment of ${execution_result.get('total_amount')} successfully routed across {len(execution_result.get('shares', []))} participants."
 
         else:
             raise HTTPException(
@@ -114,6 +202,22 @@ async def approve_or_reject_action(action_id: str, req: ActionApprovalRequest):
             execution_result=execution_result,
             feedback=req.feedback,
         )
+
+        # Resume interrupted LangGraph state as approved & executed
+        if config:
+            try:
+                await guardian_agent_graph.aupdate_state(
+                    config,
+                    {
+                        "action_status": "approved",
+                        "final_response": msg,
+                    },
+                    as_node="hitl_gate",
+                )
+                await guardian_agent_graph.ainvoke(None, config=config)
+                logger.info("Resumed LangGraph state execution after approval on thread %s", thread_id)
+            except Exception as e:
+                logger.warning("LangGraph state resume (approval) notice for %s: %s", thread_id, e)
 
         return ActionApprovalResponse(
             action_id=action_id,

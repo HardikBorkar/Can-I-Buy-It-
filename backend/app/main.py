@@ -5,7 +5,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from backend.app.core.config import settings
 from backend.app.core.database import db_manager
-from backend.app.api.routes import copilot, actions
+from backend.app.api.routes import copilot, actions, auth
 
 # Setup enterprise structured logging
 logging.basicConfig(
@@ -34,9 +34,15 @@ app = FastAPI(
 )
 
 # Configure CORS
+origins = [origin for origin in settings.CORS_ORIGINS if origin != "*"]
+if "http://localhost:3000" not in origins:
+    origins.insert(0, "http://localhost:3000")
+if "http://127.0.0.1:3000" not in origins:
+    origins.append("http://127.0.0.1:3000")
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=settings.CORS_ORIGINS,
+    allow_origins=origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -45,6 +51,7 @@ app.add_middleware(
 # Register API Routers
 app.include_router(copilot.router)
 app.include_router(actions.router)
+app.include_router(auth.router)
 
 
 @app.get("/health", tags=["Health"])

@@ -20,9 +20,27 @@ import {
   ArrowRight,
   ShoppingBag,
   Sparkles,
+  Lock,
+  Zap,
+  Mail,
+  FileText,
+  ArrowDownLeft,
+  ArrowUpRight,
+  Activity,
+  Building2,
 } from "lucide-react";
 import { ActionCardPayload } from "./types";
 import { PaymentSuccessTick } from "@/components/ui/payment-success-tick";
+import { BentoAnalyticsCard } from "./bento-analytics";
+import { ExpenditureChartCard } from "./ExpenditureChartCard";
+import {
+  orderFSMReducer,
+  createInitialOrderFSM,
+  getOrderFSMAgentView,
+  invoiceFSMReducer,
+  createInitialInvoiceFSM,
+  getInvoiceFSMAgentView,
+} from "@/lib/state-machines";
 
 interface ActionCardProps {
   card: ActionCardPayload;
@@ -38,30 +56,471 @@ export function ActionCardRenderer({
   onSendInvoice,
 }: ActionCardProps) {
   const [showPayload, setShowPayload] = useState(false);
-  const [orderState, setOrderState] = useState<"pending" | "authorized" | "rejected">(
-    card.event === "APPROVAL_REQUIRED" ? "pending" : "authorized"
-  );
-  const [isCapturing, setIsCapturing] = useState(false);
-  const [captureSuccess, setCaptureSuccess] = useState(false);
-  const [isSendingInvoice, setIsSendingInvoice] = useState(false);
-  const [sentInvoice, setSentInvoice] = useState<{
-    invoiceId: string;
-    invoiceNumber?: string;
-    status: string;
-    paymentUrl?: string;
-  } | null>(null);
   const [showInvoiceVerifyHelp, setShowInvoiceVerifyHelp] = useState(false);
+  const [securityMode, setSecurityMode] = useState<"paypal_password" | "agent_delegated">("paypal_password");
+
+  // Strongly-Typed Finite State Machines for Order & Invoice lifecycles
+  const orderData = card.orderCardData;
+  const [orderFSM, dispatchOrderFSM] = React.useReducer(
+    orderFSMReducer,
+    createInitialOrderFSM(
+      orderData?.orderId || "SANDBOX-ORD-9281",
+      card.event === "APPROVAL_REQUIRED" ? "pending" : "authorized",
+      orderData?.approveUrl
+    )
+  );
+
+  const invoiceData = card.invoicePreviewData;
+  const [invoiceFSM, dispatchInvoiceFSM] = React.useReducer(
+    invoiceFSMReducer,
+    createInitialInvoiceFSM(
+      invoiceData?.invoiceId || "INV2-SANDBOX-7821",
+      invoiceData?.recipientEmail || "client-procurement@enterprise.io",
+      invoiceData?.total || 1250.0
+    )
+  );
 
   // =========================================================================
-  // 1. ORDER CARD (HITL GUARDRAIL PROTECTED)
+  // 00. EXPENDITURE ANALYTICS CHART CARD (READ-ONLY BENTO GRID)
+  // =========================================================================
+  if (
+    card.event === "expenditure_chart" ||
+    card.type === "expenditure_chart" ||
+    card.chartData ||
+    card.chart_data
+  ) {
+    const chartPayload = card.chartData || card.chart_data || (card as any);
+    return <ExpenditureChartCard data={chartPayload} />;
+  }
+
+  // =========================================================================
+  // 0A. READ-ONLY ORDER INSPECTION STATUS CARD (BENTO GRID)
+  // =========================================================================
+  if (
+    card.event === "order_inspection_result" ||
+    card.type === "order_inspection_result" ||
+    card.orderInspectionData
+  ) {
+    if (!card.orderInspectionData) return null;
+    const data = card.orderInspectionData;
+    const isFound = data.found && data.status !== "NOT_FOUND";
+
+    return (
+      <div className="w-full max-w-xl mx-auto my-3 rounded-2xl border border-zinc-800/80 bg-[#0A0A0E] text-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl overflow-hidden transition-all duration-200">
+        {/* Bento Artifact Header */}
+        <div className="px-5 py-3.5 border-b border-zinc-800/80 bg-gradient-to-r from-zinc-900/80 via-zinc-900/50 to-zinc-950 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div
+              className={`p-2 rounded-xl border shadow-sm ${
+                isFound
+                  ? "bg-emerald-500/10 border-emerald-500/30 text-emerald-400"
+                  : "bg-rose-500/10 border-rose-500/30 text-rose-400"
+              }`}
+            >
+              <ShieldCheck className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-zinc-100 tracking-tight">PayPal Order Inspection</h3>
+                <span className="px-2 py-0.5 rounded text-[9.5px] font-mono bg-zinc-800/80 text-zinc-300 border border-zinc-700/80">
+                  Read-Only Audit
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                Real-time Sandbox REST v2 API verification
+              </p>
+            </div>
+          </div>
+
+          <span
+            className={`px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold border flex items-center gap-1.5 shadow-sm ${
+              data.status === "COMPLETED"
+                ? "bg-emerald-500/10 text-emerald-400 border-emerald-500/30"
+                : data.status === "CREATED"
+                ? "bg-blue-500/10 text-blue-400 border-blue-500/30"
+                : "bg-rose-500/10 text-rose-400 border-rose-500/30"
+            }`}
+          >
+            <span
+              className={`w-1.5 h-1.5 rounded-full ${
+                data.status === "COMPLETED"
+                  ? "bg-emerald-400"
+                  : data.status === "CREATED"
+                  ? "bg-blue-400"
+                  : "bg-rose-400 animate-pulse"
+              }`}
+            />
+            {data.status}
+          </span>
+        </div>
+
+        {/* Bento Grid Layout */}
+        <div className="p-4 sm:p-5 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Bento Tile 1: Order ID */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Order Identifier</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-zinc-400">
+                  <Terminal className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-sm font-mono font-bold text-zinc-100">
+                  #{data.orderId}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Resource Key in PayPal Sandbox</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 2: Real Status & Amount */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Endpoint Status</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-zinc-400">
+                  <Activity className="w-3.5 h-3.5 text-zinc-300" />
+                </div>
+              </div>
+              <div>
+                <div
+                  className={`text-sm font-mono font-bold ${
+                    isFound ? "text-emerald-400" : "text-rose-400"
+                  }`}
+                >
+                  {isFound ? `${data.status} ($${(data.amount || 0).toFixed(2)})` : "404 RESOURCE_NOT_FOUND"}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">api-m.sandbox.paypal.com</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 3: Anti-Hallucination Guard (Span 2) */}
+            <div
+              className={`p-3.5 rounded-xl border col-span-1 sm:col-span-2 ${
+                isFound
+                  ? "border-emerald-500/25 bg-emerald-950/15"
+                  : "border-rose-500/25 bg-rose-950/15"
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1.5">
+                {isFound ? (
+                  <CheckCircle2 className="w-4 h-4 text-emerald-400 shrink-0" />
+                ) : (
+                  <XCircle className="w-4 h-4 text-rose-400 shrink-0" />
+                )}
+                <span
+                  className={`text-xs font-semibold ${
+                    isFound ? "text-emerald-300" : "text-rose-300"
+                  }`}
+                >
+                  {isFound ? "Sandbox Order Verified" : "Order Not Found in Sandbox"}
+                </span>
+              </div>
+              <p className="text-[11.5px] text-zinc-300 leading-relaxed">
+                {isFound
+                  ? `Order #${data.orderId} verified against live PayPal Sandbox. No unauthorized alterations detected.`
+                  : `Order #${data.orderId} does not exist in PayPal Sandbox. Guardian prevented merchant fabrication and refused to render payment or capture controls.`}
+              </p>
+            </div>
+          </div>
+
+          {/* Audit Footer Pill */}
+          <div className="p-2.5 rounded-xl bg-zinc-950/80 border border-zinc-800/60 text-[10.5px] text-zinc-400 flex items-center justify-between font-mono">
+            <span>Audit Mode:</span>
+            <span className="text-zinc-300">Read-Only Status Inspection (Capture Suppressed)</span>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 0B. INVOICE APPROVAL REQUIRED CARD (BENTO GRID - INCOMING RECEIVABLE +$X.XX)
+  // =========================================================================
+  if (
+    card.event === "invoice_approval_required" ||
+    card.type === "invoice_approval_required" ||
+    card.invoiceApprovalData
+  ) {
+    if (!card.invoiceApprovalData) return null;
+    const data = card.invoiceApprovalData;
+
+    return (
+      <div className="w-full max-w-xl mx-auto my-3 rounded-2xl border border-zinc-800/80 bg-[#0A0A0E] text-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl overflow-hidden transition-all duration-200">
+        {/* Bento Artifact Header */}
+        <div className="px-5 py-3.5 border-b border-zinc-800/80 bg-gradient-to-r from-zinc-900/80 via-zinc-900/50 to-zinc-950 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-teal-500/10 border border-teal-500/25 text-teal-400 shadow-sm">
+              <Receipt className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-zinc-100 tracking-tight">Draft PayPal Invoice</h3>
+                <span className="px-2 py-0.5 rounded text-[9.5px] font-mono bg-teal-500/10 text-teal-400 border border-teal-500/25">
+                  REST v2 Invoicing
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                Incoming receivable dispatch • Non-debiting transaction
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            APPROVAL_REQUIRED
+          </span>
+        </div>
+
+        {/* Bento Grid Body */}
+        <div className="p-4 sm:p-5 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Bento Tile 1: Recipient Counterparty */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Recipient Email</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-teal-400">
+                  <Mail className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-[13px] font-mono font-semibold text-zinc-100 truncate">
+                  {data.recipientEmail}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Billing counterparty destination</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 2: Service Description */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Service Line Item</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-zinc-300">
+                  <FileText className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-[13px] font-medium text-zinc-100 truncate">
+                  {data.description}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Scope of deliverable / invoice line</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 3: Net Receivable Credit (Highlighted Bento Cell) */}
+            <div className="p-3.5 rounded-xl border border-emerald-500/30 bg-gradient-to-b from-emerald-950/20 via-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300">Receivable Credit</span>
+                <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <ArrowDownLeft className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold font-mono text-emerald-400 tracking-tight">
+                  +${data.amount.toFixed(2)}{" "}
+                  <span className="text-xs text-emerald-300/80 font-normal">{data.currency || "USD"}</span>
+                </div>
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono bg-emerald-500/10 text-emerald-300 border border-emerald-500/25">
+                  Incoming Cash Flow
+                </span>
+              </div>
+            </div>
+
+            {/* Bento Tile 4: Invariant Safety Guard */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Safety Buffer Floor</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-emerald-400">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs font-semibold text-zinc-100 flex items-center gap-1.5">
+                  <CheckCircle2 className="w-3.5 h-3.5 text-emerald-400 shrink-0" />
+                  <span>$500.00 Floor Preserved</span>
+                </div>
+                <p className="text-[10.5px] text-zinc-400 mt-0.5">
+                  Incoming receivable — user balance untouched
+                </p>
+              </div>
+            </div>
+          </div>
+
+          {/* Bento Actions Bar */}
+          <div className="pt-2 flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (onSendInvoice) {
+                  onSendInvoice(data.invoiceId || "draft-inv", data.recipientEmail, data.amount);
+                }
+              }}
+              className="flex-1 h-10 px-4 rounded-xl bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-emerald-950/40"
+            >
+              <CheckCircle2 className="w-4 h-4" />
+              <span>Send PayPal Invoice</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onRejectOrder) onRejectOrder(data.invoiceId || "draft-inv");
+              }}
+              className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-zinc-850 border border-zinc-800 text-zinc-400 hover:text-zinc-200 text-xs font-medium transition active:scale-95"
+            >
+              Discard
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 0C. CHECKOUT APPROVAL REQUIRED CARD (BENTO GRID - DEBIT -$X.XX & RESERVE)
+  // =========================================================================
+  if (
+    card.event === "checkout_approval_required" ||
+    card.type === "checkout_approval_required" ||
+    card.checkoutApprovalData
+  ) {
+    if (!card.checkoutApprovalData) return null;
+    const data = card.checkoutApprovalData;
+
+    return (
+      <div className="w-full max-w-xl mx-auto my-3 rounded-2xl border border-zinc-800/80 bg-[#0A0A0E] text-zinc-100 shadow-[0_12px_40px_rgba(0,0,0,0.7)] backdrop-blur-xl overflow-hidden transition-all duration-200">
+        {/* Bento Artifact Header */}
+        <div className="px-5 py-3.5 border-b border-zinc-800/80 bg-gradient-to-r from-zinc-900/80 via-zinc-900/50 to-zinc-950 flex flex-wrap items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="p-2 rounded-xl bg-amber-500/10 border border-amber-500/25 text-amber-400 shadow-sm">
+              <CreditCard className="w-4 h-4" />
+            </div>
+            <div>
+              <div className="flex items-center gap-2">
+                <h3 className="text-xs font-bold text-zinc-100 tracking-tight">Sandbox Payment Authorization</h3>
+                <span className="px-2 py-0.5 rounded text-[9.5px] font-mono bg-amber-500/10 text-amber-400 border border-amber-500/25">
+                  Consensus Ratified
+                </span>
+              </div>
+              <p className="text-[11px] text-zinc-400 font-sans mt-0.5">
+                Human-in-the-Loop pre-execution authorization gate
+              </p>
+            </div>
+          </div>
+          <span className="px-2.5 py-1 rounded-full text-[10px] font-mono font-semibold bg-amber-500/10 text-amber-300 border border-amber-500/30 flex items-center gap-1.5 shadow-sm">
+            <span className="w-1.5 h-1.5 rounded-full bg-amber-400 animate-pulse" />
+            APPROVAL_REQUIRED
+          </span>
+        </div>
+
+        {/* Bento Grid Body */}
+        <div className="p-4 sm:p-5 space-y-3">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5">
+            {/* Bento Tile 1: Order Item */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Order Item</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-amber-400">
+                  <ShoppingBag className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-[13px] font-medium text-zinc-100 truncate">
+                  {data.item}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5 font-mono">ID: {data.orderId || "act-ord"}</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 2: Merchant Payee */}
+            <div className="p-3.5 rounded-xl border border-zinc-800/80 bg-gradient-to-b from-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-zinc-400">Merchant / Payee</span>
+                <div className="p-1 rounded-md bg-zinc-800/80 text-zinc-300">
+                  <Building2 className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xs sm:text-[13px] font-medium text-zinc-100 truncate">
+                  {data.merchant}
+                </div>
+                <p className="text-[10px] text-zinc-400 mt-0.5">Verified PayPal Sandbox Vendor</p>
+              </div>
+            </div>
+
+            {/* Bento Tile 3: Outgoing Debit Amount */}
+            <div className="p-3.5 rounded-xl border border-rose-500/30 bg-gradient-to-b from-rose-950/20 via-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-300">Debit Outflow</span>
+                <div className="p-1 rounded-md bg-rose-500/10 text-rose-400 border border-rose-500/20">
+                  <ArrowUpRight className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-2xl font-bold font-mono text-rose-400 tracking-tight">
+                  -${data.amount.toFixed(2)}{" "}
+                  <span className="text-xs text-rose-300/80 font-normal">{data.currency || "USD"}</span>
+                </div>
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono bg-rose-500/10 text-rose-300 border border-rose-500/25">
+                  Single Authorization
+                </span>
+              </div>
+            </div>
+
+            {/* Bento Tile 4: Post-Purchase Reserve Buffer */}
+            <div className="p-3.5 rounded-xl border border-emerald-500/25 bg-gradient-to-b from-emerald-950/20 via-zinc-900/60 to-zinc-900/20 flex flex-col justify-between">
+              <div className="flex items-center justify-between text-zinc-400 mb-2">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-emerald-300">Post-Purchase Reserve</span>
+                <div className="p-1 rounded-md bg-emerald-500/10 text-emerald-400 border border-emerald-500/20">
+                  <ShieldCheck className="w-3.5 h-3.5" />
+                </div>
+              </div>
+              <div>
+                <div className="text-xl font-bold font-mono text-emerald-400 tracking-tight">
+                  ${(data.postPurchaseReserve ?? 780).toFixed(2)}{" "}
+                  <span className="text-xs text-emerald-300/80 font-normal">USD</span>
+                </div>
+                <span className="inline-block mt-1 px-1.5 py-0.5 rounded text-[9.5px] font-mono bg-emerald-500/10 text-emerald-400 border border-emerald-500/25">
+                  ≥ $500.00 Floor Intact
+                </span>
+              </div>
+            </div>
+          </div>
+
+          {/* Bento Actions Bar */}
+          <div className="pt-2 flex items-center gap-2.5">
+            <button
+              type="button"
+              onClick={() => {
+                if (onAuthorizeOrder) onAuthorizeOrder(data.orderId || "act-ord", data.amount);
+              }}
+              className="flex-1 h-10 px-4 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-400 hover:to-amber-500 text-black font-bold text-xs transition-all flex items-center justify-center gap-2 active:scale-95 shadow-lg shadow-amber-950/40"
+            >
+              <Lock className="w-4 h-4 text-black" />
+              <span>Authorize Sandbox Payment</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                if (onRejectOrder) onRejectOrder(data.orderId || "act-ord");
+              }}
+              className="h-10 px-4 rounded-xl bg-zinc-900 hover:bg-rose-950/40 border border-zinc-800 hover:border-rose-500/40 text-zinc-400 hover:text-rose-300 text-xs font-medium transition active:scale-95"
+            >
+              Reject
+            </button>
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  // =========================================================================
+  // 1. ORDER CARD (HITL & AUTONOMOUS AGENT SECURITY PROTECTED)
   // =========================================================================
   if (card.type === "order_card" || card.orderCardData) {
     const data = card.orderCardData || {
-      orderId: "SANDBOX-ORD-9281",
-      item: "Sony Alpha a7 IV Camera",
-      price: 850.0,
+      orderId: "ORD-SANDBOX-01",
+      item: "Retail Item",
+      price: 100.0,
       currency: "USD",
-      merchant: "Sony Digital Direct",
+      merchant: "Verified Vendor",
       status: "PENDING_AUTHORIZATION",
       approveUrl: "https://www.sandbox.paypal.com/checkoutnow",
     };
@@ -71,8 +530,8 @@ export function ActionCardRenderer({
       `https://www.sandbox.paypal.com/checkoutnow?token=${data.orderId}`;
 
     return (
-      <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-xl bg-[#0B0B0E] border border-zinc-800 shadow-xl space-y-3.5 transition-all duration-200">
-        {/* Header & Glowing Pill Badge */}
+      <div className="w-full max-w-md mx-auto mt-3 p-4 rounded-2xl bg-[#0D0D12] border border-zinc-800 shadow-2xl space-y-3.5 transition-all duration-200">
+        {/* Header & Status Badge */}
         <div className="flex items-center justify-between border-b border-zinc-850 pb-2.5">
           <div className="flex items-center gap-2">
             <div className="p-1.5 rounded-lg bg-emerald-500/10 border border-emerald-500/30 text-emerald-400">
@@ -94,16 +553,64 @@ export function ActionCardRenderer({
           </div>
         </div>
 
-        {/* Human-in-the-Loop Security Notice */}
-        <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/30 text-[11px] text-amber-300 space-y-1">
-          <div className="flex items-center gap-1.5 font-semibold text-amber-200">
-            <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
-            <span>Human-in-the-Loop Security Guardrail</span>
+        {/* Security Posture Option Switcher */}
+        {orderFSM.status === "PENDING_APPROVAL" && (
+          <div className="space-y-2">
+            <div className="text-[10.5px] font-medium text-zinc-400 flex items-center justify-between">
+              <span>Security &amp; Authorization Mode:</span>
+              <span className="text-[9.5px] font-mono text-zinc-500">Dual Posture</span>
+            </div>
+            <div className="grid grid-cols-2 gap-1.5 p-1 rounded-xl bg-zinc-950 border border-zinc-850">
+              <button
+                type="button"
+                onClick={() => setSecurityMode("paypal_password")}
+                className={`py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                  securityMode === "paypal_password"
+                    ? "bg-zinc-800 text-amber-300 shadow-sm border border-amber-500/30"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <Lock className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                <span className="truncate">PayPal Password</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => setSecurityMode("agent_delegated")}
+                className={`py-1.5 px-2 rounded-lg text-xs font-medium transition flex items-center justify-center gap-1.5 ${
+                  securityMode === "agent_delegated"
+                    ? "bg-zinc-800 text-teal-300 shadow-sm border border-teal-500/30"
+                    : "text-zinc-400 hover:text-zinc-200"
+                }`}
+              >
+                <Zap className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                <span className="truncate">Agent Settle</span>
+              </button>
+            </div>
+
+            {/* Contextual Security Explanation */}
+            {securityMode === "paypal_password" ? (
+              <div className="p-2.5 rounded-lg bg-amber-950/20 border border-amber-500/25 text-[11px] text-amber-300/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-amber-200">
+                  <ShieldCheck className="w-3.5 h-3.5 text-amber-400 shrink-0" />
+                  <span>Zero-Trust: PayPal Password Required</span>
+                </div>
+                <p className="leading-relaxed text-amber-300/75 text-[10.5px]">
+                  Guardian Copilot will never debit funds without your explicit interactive authentication on the official PayPal Sandbox login.
+                </p>
+              </div>
+            ) : (
+              <div className="p-2.5 rounded-lg bg-teal-950/20 border border-teal-500/25 text-[11px] text-teal-300/90 space-y-1">
+                <div className="flex items-center gap-1.5 font-semibold text-teal-200">
+                  <Sparkles className="w-3.5 h-3.5 text-teal-400 shrink-0" />
+                  <span>Delegated Agent Autonomous Settle</span>
+                </div>
+                <p className="leading-relaxed text-teal-300/75 text-[10.5px]">
+                  Guardian Agent executes and signs the settlement autonomously via PayPal REST v2 Sandbox. Protected by your sacred $500.00 cash reserve buffer.
+                </p>
+              </div>
+            )}
           </div>
-          <p className="leading-relaxed text-amber-300/80">
-            To prevent unauthorized spending, Guardian Copilot will never debit funds automatically. You must authenticate via the official PayPal Sandbox Login to authorize this debit.
-          </p>
-        </div>
+        )}
 
         {/* Order Details Grid */}
         <div className="grid grid-cols-2 gap-2 text-xs">
@@ -125,27 +632,121 @@ export function ActionCardRenderer({
           </span>
         </div>
 
-        {/* Action Buttons: Authorize & Pay or Reject */}
-        {orderState === "pending" ? (
+        {/* Machine-Driven Lifecycle Rendering (FSM) */}
+        {orderFSM.status === "PENDING_APPROVAL" && (
           <div className="space-y-2 pt-1">
             <div className="flex items-center gap-2">
-              <button
-                type="button"
-                onClick={() => {
-                  window.open(approveLink, "_blank", "noopener,noreferrer");
-                  setOrderState("authorized");
-                  if (onAuthorizeOrder) onAuthorizeOrder(data.orderId, data.price);
-                }}
-                className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs shadow-md shadow-emerald-900/20 transition flex items-center justify-center gap-1.5 active:scale-95"
-              >
-                <CreditCard className="w-3.5 h-3.5" />
-                <span>🔐 Authorize with PayPal Sandbox</span>
-              </button>
+              {securityMode === "paypal_password" ? (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    let targetUrl = approveLink;
+                    let effectiveOrderId = data.orderId;
+
+                    // If order has not been created on PayPal yet (i.e. is an internal action draft)
+                    if (!data.approveUrl || data.orderId.startsWith("act-ord-") || data.approveUrl === "https://www.sandbox.paypal.com/checkoutnow") {
+                      try {
+                        const res = await fetch("/api/paypal/orders", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            amount: data.price,
+                            currency: data.currency || "USD",
+                            itemName: data.item || "Retail Purchase",
+                            payIn4: data.payIn4 || false,
+                          }),
+                        });
+                        if (res.ok) {
+                          const orderData = await res.json();
+                          targetUrl = orderData.approveUrl;
+                          effectiveOrderId = orderData.orderId;
+                        }
+                      } catch (e) {
+                        console.warn("Failed to dynamically create PayPal sandbox order:", e);
+                      }
+                    }
+
+                    if (targetUrl) {
+                      window.open(targetUrl, "_blank", "noopener,noreferrer");
+                      dispatchOrderFSM({ type: "AUTHORIZE_AND_OPEN", approveUrl: targetUrl });
+                    }
+                    if (onAuthorizeOrder) onAuthorizeOrder(effectiveOrderId, data.price);
+                  }}
+                  className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-amber-600 to-amber-700 hover:from-amber-500 hover:to-amber-600 text-white font-semibold text-xs shadow-md shadow-amber-950/40 transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Lock className="w-3.5 h-3.5" />
+                  <span>🔐 Pay with PayPal Password</span>
+                </button>
+              ) : (
+                <button
+                  type="button"
+                  onClick={async () => {
+                    dispatchOrderFSM({ type: "START_CAPTURE" });
+                    try {
+                      // 1. Inform LangGraph checkpointer via decide endpoint
+                      fetch(`/api/actions/${data.orderId}/decide`, {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ decision: "approve", feedback: "Approved via Autonomous Agent Delegated Authorization" }),
+                      }).catch(() => {});
+
+                      let targetOrderId = data.orderId;
+                      if (data.orderId.startsWith("act-ord-")) {
+                        const createRes = await fetch("/api/paypal/orders", {
+                          method: "POST",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            amount: data.price,
+                            currency: data.currency || "USD",
+                            itemName: data.item || "Retail Purchase",
+                            payIn4: data.payIn4 || false,
+                          }),
+                        });
+                        if (createRes.ok) {
+                          const created = await createRes.json();
+                          targetOrderId = created.orderId;
+                        }
+                      }
+
+                      // 2. Capture on PayPal REST v2 Sandbox
+                      const res = await fetch("/api/paypal/capture", {
+                        method: "POST",
+                        headers: { "Content-Type": "application/json" },
+                        body: JSON.stringify({ orderId: targetOrderId }),
+                      });
+                      if (res.ok) {
+                        const resData = await res.json().catch(() => ({}));
+                        dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.id || resData.capture_id || `cap-${targetOrderId.slice(-6)}` });
+                        if (onAuthorizeOrder) onAuthorizeOrder(targetOrderId, data.price);
+                      } else {
+                        dispatchOrderFSM({
+                          type: "CAPTURE_FAILURE",
+                          error: `PayPal capture API returned HTTP ${res.status}.`,
+                        });
+                      }
+                    } catch (err: unknown) {
+                      dispatchOrderFSM({
+                        type: "CAPTURE_FAILURE",
+                        error: err instanceof Error ? err.message : "Agent execution failed.",
+                      });
+                    }
+                  }}
+                  className="flex-1 h-9 px-3 rounded-lg bg-gradient-to-r from-teal-600 to-emerald-600 hover:from-teal-500 hover:to-emerald-500 text-white font-semibold text-xs shadow-md shadow-teal-950/40 transition flex items-center justify-center gap-1.5 active:scale-95"
+                >
+                  <Zap className="w-3.5 h-3.5" />
+                  <span>⚡ Agent Direct Settle</span>
+                </button>
+              )}
 
               <button
                 type="button"
                 onClick={() => {
-                  setOrderState("rejected");
+                  dispatchOrderFSM({ type: "REJECT", reason: "Payment rejected by user. Buffer floor preserved." });
+                  fetch(`/api/actions/${data.orderId}/decide`, {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ decision: "reject", feedback: "Rejected by user." }),
+                  }).catch(() => {});
                   if (onRejectOrder) onRejectOrder(data.orderId);
                 }}
                 className="h-9 px-3 rounded-lg bg-zinc-900 hover:bg-rose-950/40 border border-zinc-850 hover:border-rose-500/40 text-zinc-300 hover:text-rose-300 text-xs font-medium transition flex items-center gap-1.5 active:scale-95"
@@ -155,64 +756,123 @@ export function ActionCardRenderer({
               </button>
             </div>
             <p className="text-[10px] text-zinc-500 text-center font-mono">
-              Redirects to official sandbox.paypal.com checkout login
+              {securityMode === "paypal_password"
+                ? "Redirects to official sandbox.paypal.com checkout login"
+                : "One-click autonomous execution ($500 sacred reserve intact)"}
             </p>
           </div>
-        ) : orderState === "authorized" ? (
+        )}
+
+        {(orderFSM.status === "CHECKOUT_OPENED" || orderFSM.status === "CAPTURING") && (
           <div className="pt-1">
-            {captureSuccess ? (
-              <PaymentSuccessTick
-                amount={data.price}
-                currency={data.currency || "USD"}
-                item={data.item}
-                recipient={data.merchant}
-                orderId={data.orderId}
-                statusLabel="Payment Settled Successfully"
-                autoPlaySound={true}
-                compact={false}
-              />
-            ) : (
-              <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40 text-emerald-300 text-xs space-y-2.5">
-                <div className="flex items-center gap-2 justify-center">
-                  <CheckCircle2 className="w-4 h-4 text-emerald-400" />
-                  <span className="font-semibold text-zinc-100">PayPal Checkout Tab Opened</span>
-                </div>
-                <p className="text-[11px] text-zinc-400 text-center leading-relaxed">
-                  Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:
-                </p>
-                <button
-                  type="button"
-                  disabled={isCapturing}
-                  onClick={async () => {
-                    setIsCapturing(true);
-                    try {
-                      const res = await fetch("/api/paypal/capture", {
-                        method: "POST",
-                        headers: { "Content-Type": "application/json" },
-                        body: JSON.stringify({ orderId: data.orderId }),
-                      });
-                      if (res.ok) {
-                        setCaptureSuccess(true);
-                      } else {
-                        // Fallback for already captured or mock orders
-                        setCaptureSuccess(true);
-                      }
-                    } catch (e) {
-                      console.error("Capture call error:", e);
-                      setCaptureSuccess(true);
-                    } finally {
-                      setIsCapturing(false);
-                    }
-                  }}
-                  className="w-full h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95"
-                >
-                  <CheckCircle2 className="w-3.5 h-3.5" />
-                  <span>{isCapturing ? "Capturing on PayPal Sandbox..." : "Verify & Settle Settlement"}</span>
-                </button>
+            <div className="p-3.5 rounded-xl bg-emerald-950/25 border border-emerald-500/40 text-emerald-300 text-xs space-y-2.5">
+              <div className="flex items-center gap-2 justify-center">
+                <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                <span className="font-semibold text-zinc-100">
+                  {orderFSM.status === "CAPTURING" ? "Processing Settlement..." : "PayPal Checkout Tab Opened"}
+                </span>
               </div>
-            )}
+              <p className="text-[11px] text-zinc-400 text-center leading-relaxed">
+                {orderFSM.status === "CAPTURING"
+                  ? "Guardian Agent is securing settlement via PayPal REST v2 API..."
+                  : "Completed login and approved on PayPal Sandbox? Click below to finalize settlement and verify transaction:"}
+              </p>
+              <button
+                type="button"
+                disabled={orderFSM.status === "CAPTURING"}
+                onClick={async () => {
+                  dispatchOrderFSM({ type: "START_CAPTURE" });
+                  try {
+                    const res = await fetch("/api/paypal/capture", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ orderId: data.orderId }),
+                    });
+                    if (res.ok) {
+                      const resData = await res.json().catch(() => ({}));
+                      dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.capture_id });
+                    } else {
+                      dispatchOrderFSM({
+                        type: "CAPTURE_FAILURE",
+                        error: `PayPal capture API returned HTTP ${res.status}.`,
+                      });
+                    }
+                  } catch (e: unknown) {
+                    dispatchOrderFSM({
+                      type: "CAPTURE_FAILURE",
+                      error: e instanceof Error ? e.message : "Network error contacting capture endpoint.",
+                    });
+                  }
+                }}
+                className="w-full h-9 rounded-lg bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-500 hover:to-teal-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5 shadow-md shadow-emerald-950/40 active:scale-95 disabled:opacity-60"
+              >
+                <CheckCircle2 className="w-3.5 h-3.5" />
+                <span>{orderFSM.status === "CAPTURING" ? "Capturing on PayPal Sandbox..." : "Verify & Settle Settlement"}</span>
+              </button>
+            </div>
           </div>
-        ) : (
+        )}
+
+        {orderFSM.status === "CAPTURE_ERROR" && (
+          <div className="p-3 rounded-lg bg-amber-950/30 border border-amber-500/40 text-amber-300 text-xs space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-amber-400" />
+              <span className="font-semibold text-zinc-100">Capture Incomplete</span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{orderFSM.errorMessage}</p>
+            <div className="flex items-center gap-2">
+              <button
+                type="button"
+                onClick={async () => {
+                  dispatchOrderFSM({ type: "RETRY_CAPTURE" });
+                  try {
+                    const res = await fetch("/api/paypal/capture", {
+                      method: "POST",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({ orderId: data.orderId }),
+                    });
+                    if (res.ok) {
+                      const resData = await res.json().catch(() => ({}));
+                      dispatchOrderFSM({ type: "CAPTURE_SUCCESS", captureId: resData.capture_id });
+                    } else {
+                      dispatchOrderFSM({ type: "CAPTURE_FAILURE", error: `Capture retry returned HTTP ${res.status}.` });
+                    }
+                  } catch (e: unknown) {
+                    dispatchOrderFSM({
+                      type: "CAPTURE_FAILURE",
+                      error: e instanceof Error ? e.message : "Capture retry failed.",
+                    });
+                  }
+                }}
+                className="flex-1 h-8 rounded bg-amber-600 hover:bg-amber-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1"
+              >
+                <span>Retry Verification</span>
+              </button>
+              <button
+                type="button"
+                onClick={() => dispatchOrderFSM({ type: "REJECT", reason: "User aborted after capture failure." })}
+                className="px-3 h-8 rounded bg-zinc-900 hover:bg-zinc-800 text-zinc-300 text-xs transition"
+              >
+                Dismiss
+              </button>
+            </div>
+          </div>
+        )}
+
+        {orderFSM.status === "SETTLED" && (
+          <PaymentSuccessTick
+            amount={data.price}
+            currency={data.currency || "USD"}
+            item={data.item}
+            recipient={data.merchant}
+            orderId={data.orderId}
+            statusLabel="Payment Settled Successfully"
+            autoPlaySound={true}
+            compact={true}
+          />
+        )}
+
+        {orderFSM.status === "REJECTED" && (
           <div className="p-2.5 rounded-lg bg-rose-950/30 border border-rose-500/40 text-rose-300 text-xs flex items-center gap-2 justify-center">
             <XCircle className="w-4 h-4 text-rose-400" />
             <span className="font-medium">Payment Cancelled - Buffer Floor Preserved</span>
@@ -301,13 +961,13 @@ export function ActionCardRenderer({
           </span>
         </div>
 
-        {/* Send Invoice Action Button */}
-        {!sentInvoice ? (
+        {/* Machine-Driven Lifecycle Rendering (Invoice FSM) */}
+        {(invoiceFSM.status === "DRAFT_PREVIEW" || invoiceFSM.status === "DISPATCHING") && (
           <button
             type="button"
-            disabled={isSendingInvoice}
+            disabled={invoiceFSM.status === "DISPATCHING"}
             onClick={async () => {
-              setIsSendingInvoice(true);
+              dispatchInvoiceFSM({ type: "START_DISPATCH" });
               try {
                 const res = await fetch("/api/paypal/invoices", {
                   method: "POST",
@@ -319,31 +979,97 @@ export function ActionCardRenderer({
                     currency: data.currency || "USD",
                   }),
                 });
-                const resData = await res.json();
-                setSentInvoice({
-                  invoiceId: resData.invoiceId || data.invoiceId,
-                  invoiceNumber: resData.invoiceNumber || "INV-001",
-                  status: resData.status || "SENT",
-                  paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                if (res.ok) {
+                  const resData = await res.json();
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_SUCCESS",
+                    data: {
+                      invoiceId: resData.invoiceId || data.invoiceId,
+                      invoiceNumber: resData.invoiceNumber || "INV-001",
+                      status: resData.status || "SENT",
+                      paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                      isMock: Boolean(resData.isMock),
+                      dispatchedAt: Date.now(),
+                    },
+                  });
+                  if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
+                } else {
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_FAILURE",
+                    error: `PayPal Invoice API returned HTTP ${res.status}.`,
+                  });
+                }
+              } catch (err: unknown) {
+                dispatchInvoiceFSM({
+                  type: "DISPATCH_FAILURE",
+                  error: err instanceof Error ? err.message : "Failed to connect to PayPal invoicing API.",
                 });
-                if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
-              } catch (err) {
-                console.error("Failed to dispatch invoice:", err);
-                setSentInvoice({
-                  invoiceId: data.invoiceId,
-                  status: "SENT",
-                  paymentUrl: `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
-                });
-              } finally {
-                setIsSendingInvoice(false);
               }
             }}
-            className="w-full h-9 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-sky-900/20 transition flex items-center justify-center gap-1.5 active:scale-95"
+            className="w-full h-9 rounded-lg bg-gradient-to-r from-sky-600 to-indigo-600 hover:from-sky-500 hover:to-indigo-500 text-white font-semibold text-xs shadow-md shadow-sky-900/20 transition flex items-center justify-center gap-1.5 active:scale-95 disabled:opacity-60"
           >
             <Receipt className="w-3.5 h-3.5" />
-            <span>{isSendingInvoice ? "Dispatching via PayPal REST v2..." : "Send Invoice via PayPal"}</span>
+            <span>{invoiceFSM.status === "DISPATCHING" ? "Dispatching via PayPal REST v2..." : "Send Invoice via PayPal"}</span>
           </button>
-        ) : (
+        )}
+
+        {invoiceFSM.status === "DISPATCH_ERROR" && (
+          <div className="p-3 rounded-lg bg-rose-950/30 border border-rose-500/40 text-rose-300 text-xs space-y-2">
+            <div className="flex items-center gap-2">
+              <AlertTriangle className="w-4 h-4 text-rose-400" />
+              <span className="font-semibold text-zinc-100">Invoice Dispatch Failed</span>
+            </div>
+            <p className="text-[11px] text-zinc-400">{invoiceFSM.errorMessage}</p>
+            <button
+              type="button"
+              onClick={async () => {
+                dispatchInvoiceFSM({ type: "RETRY_DISPATCH" });
+                try {
+                  const res = await fetch("/api/paypal/invoices", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      recipientEmail: data.recipientEmail,
+                      amount: data.total,
+                      description: data.items?.[0]?.name || "Enterprise Autonomous Agent Architecture",
+                      currency: data.currency || "USD",
+                    }),
+                  });
+                  if (res.ok) {
+                    const resData = await res.json();
+                    dispatchInvoiceFSM({
+                      type: "DISPATCH_SUCCESS",
+                      data: {
+                        invoiceId: resData.invoiceId || data.invoiceId,
+                        invoiceNumber: resData.invoiceNumber || "INV-001",
+                        status: resData.status || "SENT",
+                        paymentUrl: resData.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${data.invoiceId}`,
+                        isMock: Boolean(resData.isMock),
+                        dispatchedAt: Date.now(),
+                      },
+                    });
+                    if (onSendInvoice) onSendInvoice(data.invoiceId, data.recipientEmail, data.total);
+                  } else {
+                    dispatchInvoiceFSM({
+                      type: "DISPATCH_FAILURE",
+                      error: `Retry returned HTTP ${res.status}.`,
+                    });
+                  }
+                } catch (e: unknown) {
+                  dispatchInvoiceFSM({
+                    type: "DISPATCH_FAILURE",
+                    error: e instanceof Error ? e.message : "Retry failed.",
+                  });
+                }
+              }}
+              className="w-full h-8 rounded bg-rose-600 hover:bg-rose-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1"
+            >
+              <span>Retry Dispatch</span>
+            </button>
+          </div>
+        )}
+
+        {invoiceFSM.status === "DISPATCHED" && (
           <div className="space-y-2 pt-1">
             <div className="p-3 rounded-lg bg-sky-950/30 border border-sky-500/40 text-sky-300 text-xs space-y-2">
               <div className="flex items-center justify-between">
@@ -352,14 +1078,14 @@ export function ActionCardRenderer({
                   <span className="font-semibold text-zinc-100">Invoice Dispatched</span>
                 </div>
                 <span className="font-mono text-[10px] px-1.5 py-0.5 rounded bg-sky-500/20 text-sky-300 border border-sky-500/40">
-                  {sentInvoice.status}
+                  {invoiceFSM.data.status}
                 </span>
               </div>
               <div className="text-[11px] text-zinc-300 font-mono">
-                Invoice Reference: #{sentInvoice.invoiceId}
+                Invoice Reference: #{invoiceFSM.data.invoiceId}
               </div>
               <a
-                href={sentInvoice.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${sentInvoice.invoiceId}`}
+                href={invoiceFSM.data.paymentUrl || `https://www.sandbox.paypal.com/invoice/p/#${invoiceFSM.data.invoiceId}`}
                 target="_blank"
                 rel="noopener noreferrer"
                 className="h-8 w-full rounded-md bg-sky-600 hover:bg-sky-500 text-white font-semibold text-xs transition flex items-center justify-center gap-1.5"
@@ -367,6 +1093,12 @@ export function ActionCardRenderer({
                 <span>View Invoice on PayPal Sandbox</span>
                 <ExternalLink className="w-3.5 h-3.5" />
               </a>
+
+              {invoiceFSM.data.isMock && (
+                <div className="p-2 rounded bg-amber-950/40 border border-amber-500/40 text-[10px] text-amber-300 leading-relaxed font-sans">
+                  ⚠️ <strong>Simulated Sandbox Invoice:</strong> Your PayPal REST App lacks the <strong>&quot;Invoicing&quot;</strong> permission. Enable the <strong>Invoicing</strong> checkbox in your <a href="https://developer.paypal.com/dashboard/applications/sandbox" target="_blank" rel="noopener noreferrer" className="underline font-bold text-amber-200">Developer Portal</a> to have invoices appear in your live sandbox account.
+                </div>
+              )}
             </div>
 
             {/* How to verify guidance */}
@@ -932,6 +1664,11 @@ export function ActionCardRenderer({
         </div>
       </div>
     );
+  }
+
+  // 8. MAGIC BENTO ANALYTICS CARD (React Bits MagicBento Grid)
+  if (card.type === "bento_analytics") {
+    return <BentoAnalyticsCard />;
   }
 
   return null;

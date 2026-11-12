@@ -6,7 +6,10 @@ from .models import (
     EvaluationRequest,
     UserFinancialContext,
 )
-from .currency import CurrencyGraph
+try:
+    from .currency import CurrencyGraph
+except ImportError:
+    CurrencyGraph = None
 from .reconciler import ReconciledEvent
 from .simulator import CashFlowSimulator
 from .plan_selector import CandidatePlan, PlanSelector

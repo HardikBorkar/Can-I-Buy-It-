@@ -1,0 +1,12 @@
+country_code,account_type,primary_email_alias,password,first_name,last_name,ppBalance,addBank,ccType,payment_card
+US,BUSINESS,guardian-merchant-2026@business.example.com,Guardian2026!,Alex,Merchant,10000,Y,VISA,PAYPAL
+US,BUSINESS,guardian-client-procure@business.example.com,Guardian2026!,Sarah,Procurement,5000,Y,AMEX,PAYPAL
+US,BUSINESS,guardian-contractor-escrow@business.example.com,Guardian2026!,David,Contractor,1500,Y,VISA,PAYPAL
+US,PERSONAL,guardian-buyer-healthy@personal.example.com,Guardian2026!,Michael,Buyer,3500,Y,VISA,PAYPAL
+US,PERSONAL,guardian-buyer-tight@personal.example.com,Guardian2026!,Emma,Savings,550,Y,MASTERCARD,PAYPAL
+US,PERSONAL,guardian-buyer-low@personal.example.com,Guardian2026!,James,Student,200,N,VISA,PAYPAL
+US,PERSONAL,guardian-split-user1@personal.example.com,Guardian2026!,Chris,Member,1200,Y,VISA,PAYPAL
+US,PERSONAL,guardian-split-user2@personal.example.com,Guardian2026!,Lisa,Member,1200,Y,MASTERCARD,PAYPAL
+US,PERSONAL,guardian-split-user3@personal.example.com,Guardian2026!,Brian,Member,1200,N,AMEX,PAYPAL
+US,BUSINESS,guardian-saas-vendor@business.example.com,Guardian2026!,Tech,Vendor,8000,Y,VISA,PAYPAL
+

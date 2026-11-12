@@ -44,7 +44,7 @@ export function PriceHistoryChart({
       <Empty className={className} {...props}>
         <EmptyHeader>
           <EmptyTitle>No price history</EmptyTitle>
-          <EmptyDescription>Price tracking hasn't recorded any data points yet.</EmptyDescription>
+          <EmptyDescription>Price tracking hasn&apos;t recorded any data points yet.</EmptyDescription>
         </EmptyHeader>
       </Empty>
     );

@@ -1,197 +1,118 @@
 import { NextResponse } from "next/server";
+import {
+  FINANCIAL_STATE,
+  RECURRING_COMMITMENTS,
+  getSampleTransactions,
+  Commitment,
+  Transaction,
+} from "@/lib/financial-state";
 
-interface Transaction {
-  id: string;
-  date: string;
-  description: string;
-  category: string;
-  amount: number;
-  paymentMethod: "PAY_IN_FULL" | "PAY_IN_4" | "PAYPAL_CREDIT" | "DIRECT_TRANSFER";
-  status: "COMPLETED" | "PENDING" | "REFUNDED" | "CREATED";
-  payer: string;
-}
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get("user_id") || "alex_cro";
 
-interface Commitment {
-  id: string;
-  name: string;
-  category: "Housing" | "SaaS & Tech" | "Utilities" | "Health" | "Income";
-  amount: number;
-  cadence: "Monthly" | "Bi-Weekly" | "Weekly";
-  nextDueDate: string;
-  autopay: boolean;
-  impactScore: "High" | "Medium" | "Low";
-}
+  let startingBalance = FINANCIAL_STATE.CURRENT_BALANCE;
+  const safetyFloor = FINANCIAL_STATE.SAFETY_BUFFER_FLOOR;
+  let accountEmail = FINANCIAL_STATE.ACCOUNT_EMAIL;
+  let accountName = "Michael Buyer (Healthy)";
+  const commitments: Commitment[] = RECURRING_COMMITMENTS;
 
-export async function GET() {
+  // 1. Fetch live user account from backend
+  const backendBase = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+  try {
+    const userRes = await fetch(`${backendBase}/api/auth/user/${userId}`, { cache: "no-store" });
+    if (userRes.ok) {
+      const user = await userRes.json();
+      if (typeof user.balance === "number") {
+        startingBalance = user.balance;
+      }
+      if (user.email) accountEmail = user.email;
+      if (user.name) accountName = user.name;
+    }
+  } catch (err) {
+    // fallback to startingBalance
+  }
+
+  // 2. Fetch live transactions from SQLite write-through ledger
+  const sampleTxns: Transaction[] = getSampleTransactions(new Date());
+  let liveTxns: Transaction[] = [];
+  try {
+    const txnRes = await fetch(`${backendBase}/api/auth/transactions`, { cache: "no-store" });
+    if (txnRes.ok) {
+      const data = await txnRes.json();
+      if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+        liveTxns = data.transactions.map((t: any, idx: number) => ({
+          id: t.paypal_id || `txn-${idx}`,
+          date: t.created_at ? t.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+          description: `${t.merchant || "Merchant"} - ${t.item || "Purchase"}`,
+          category: t.category || "General Retail",
+          amount: -Math.abs(t.amount || 0),
+          paymentMethod: "PAY_IN_FULL" as const,
+          status: "COMPLETED" as const,
+          payer: accountName,
+        }));
+      }
+    }
+  } catch (err) {
+    // fallback
+  }
+
+  // Deduplicate and combine live transactions with baseline samples
+  const transactions: Transaction[] = [...liveTxns, ...sampleTxns];
+
+  // 90-Day Deterministic Projection using clean UTC calendar day increments
   const today = new Date();
-  
-  // Starting checking balance in PayPal Sandbox
-  const startingBalance = 1850.00;
-  const safetyFloor = 500.00;
-
-  // Recurring Commitments
-  const commitments: Commitment[] = [
-    {
-      id: "com-1",
-      name: "Apartment Rent",
-      category: "Housing",
-      amount: -1200.00,
-      cadence: "Monthly",
-      nextDueDate: "1st of month",
-      autopay: true,
-      impactScore: "High",
-    },
-    {
-      id: "com-2",
-      name: "AWS / Cloud Infrastructure",
-      category: "SaaS & Tech",
-      amount: -85.00,
-      cadence: "Monthly",
-      nextDueDate: "15th of month",
-      autopay: true,
-      impactScore: "Medium",
-    },
-    {
-      id: "com-3",
-      name: "Software Tools (GitHub, ChatGPT)",
-      category: "SaaS & Tech",
-      amount: -42.00,
-      cadence: "Monthly",
-      nextDueDate: "18th of month",
-      autopay: true,
-      impactScore: "Low",
-    },
-    {
-      id: "com-4",
-      name: "Gym & Health Club",
-      category: "Health",
-      amount: -65.00,
-      cadence: "Monthly",
-      nextDueDate: "22nd of month",
-      autopay: true,
-      impactScore: "Low",
-    },
-    {
-      id: "com-5",
-      name: "Direct Deposit / Salary",
-      category: "Income",
-      amount: 2200.00,
-      cadence: "Bi-Weekly",
-      nextDueDate: "10th & 25th",
-      autopay: false,
-      impactScore: "High",
-    },
-  ];
-
-  // Recent PayPal Sandbox Transactions
-  const transactions: Transaction[] = [
-    {
-      id: "3N4420081Y251854T",
-      date: new Date(today.getTime() - 2 * 3600000).toISOString().split("T")[0],
-      description: "Channel3 Adidas Sneaker",
-      category: "Shopping",
-      amount: -89.50,
-      paymentMethod: "PAY_IN_4",
-      status: "COMPLETED",
-      payer: "Verified Merchant Account",
-    },
-    {
-      id: "0U603912J86200723",
-      date: new Date(today.getTime() - 5 * 3600000).toISOString().split("T")[0],
-      description: "Sony WH-1000XM5 Headphones",
-      category: "Electronics",
-      amount: -199.99,
-      paymentMethod: "PAY_IN_FULL",
-      status: "COMPLETED",
-      payer: "Verified Merchant Account",
-    },
-    {
-      id: "INV2-9844-8821-4190",
-      date: new Date(today.getTime() - 24 * 3600000).toISOString().split("T")[0],
-      description: "PayPal Invoicing: UI Consulting",
-      category: "Income",
-      amount: 450.00,
-      paymentMethod: "DIRECT_TRANSFER",
-      status: "COMPLETED",
-      payer: "client@venturecap.io",
-    },
-    {
-      id: "ORD-99120-X88",
-      date: new Date(today.getTime() - 48 * 3600000).toISOString().split("T")[0],
-      description: "GitHub Copilot Enterprise",
-      category: "Software",
-      amount: -19.00,
-      paymentMethod: "PAYPAL_CREDIT",
-      status: "COMPLETED",
-      payer: "Verified Merchant Account",
-    },
-    {
-      id: "ORD-77412-M22",
-      date: new Date(today.getTime() - 72 * 3600000).toISOString().split("T")[0],
-      description: "Target Groceries & Supplies",
-      category: "Supplies",
-      amount: -114.30,
-      paymentMethod: "PAY_IN_FULL",
-      status: "COMPLETED",
-      payer: "Verified Merchant Account",
-    },
-    {
-      id: "INV2-1102-3391-7781",
-      date: new Date(today.getTime() - 96 * 3600000).toISOString().split("T")[0],
-      description: "PayPal Invoicing: Brand Strategy",
-      category: "Income",
-      amount: 600.00,
-      paymentMethod: "DIRECT_TRANSFER",
-      status: "COMPLETED",
-      payer: "growth@startup.co",
-    },
-  ];
-
-  // 90-Day Deterministic Projection
   const timeline = [];
   let runningBalance = startingBalance;
-  
+  const startYear = today.getUTCFullYear();
+  const startMonth = today.getUTCMonth();
+  const startDay = today.getUTCDate();
+
   for (let i = 0; i < 90; i++) {
-    const d = new Date(today.getTime() + i * 24 * 3600000);
-    const dayOfMonth = d.getDate();
+    const d = new Date(Date.UTC(startYear, startMonth, startDay + i));
+    const dayOfMonth = d.getUTCDate();
     const dateStr = d.toISOString().split("T")[0];
+    const monthShort = d.toLocaleString("en-US", { month: "short", timeZone: "UTC" });
+    const displayDate = `${monthShort} ${dayOfMonth}`;
 
     // Recurring Income (10th and 25th)
     if (dayOfMonth === 10 || dayOfMonth === 25) {
-      runningBalance += 2200.00;
+      runningBalance += 2200.0;
     }
     // Recurring Rent (1st)
     if (dayOfMonth === 1) {
-      runningBalance -= 1200.00;
+      runningBalance -= 1200.0;
     }
     // Cloud SaaS (15th)
     if (dayOfMonth === 15) {
-      runningBalance -= 85.00;
+      runningBalance -= 85.0;
     }
     // Software & Gym (18th & 22nd)
     if (dayOfMonth === 18) {
-      runningBalance -= 42.00;
+      runningBalance -= 42.0;
     }
     if (dayOfMonth === 22) {
-      runningBalance -= 65.00;
+      runningBalance -= 65.0;
     }
 
     // Daily nominal living expense ($15/day avg)
-    runningBalance -= 15.00;
+    runningBalance -= 15.0;
 
     timeline.push({
       dayIndex: i,
       date: dateStr,
-      displayDate: d.toLocaleDateString("en-US", { month: "short", day: "numeric" }),
+      displayDate,
       baselineBalance: Math.round(runningBalance * 100) / 100,
-      safetyFloor: safetyFloor,
+      safetyFloor,
       isDanger: runningBalance < safetyFloor,
     });
   }
 
   return NextResponse.json({
     account: {
-      email: "Verified Sandbox Merchant",
+      user_id: userId,
+      name: accountName,
+      email: accountEmail,
       balance: startingBalance,
       currency: "USD",
       safetyBuffer: safetyFloor,
@@ -203,4 +124,3 @@ export async function GET() {
     timeline,
   });
 }
-

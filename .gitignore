@@ -83,6 +83,7 @@ MANIFEST
 # Testing, Coverage & Type Checking
 # ==========================================
 .pytest_cache/
+.deepeval/
 .coverage
 .coverage.*
 htmlcov/

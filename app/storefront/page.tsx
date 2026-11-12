@@ -33,6 +33,7 @@ import { ProductDetails } from "@/components/product-details";
 import { useVariantSelection, type VariantResolveInput } from "@/hooks/use-variant-selection";
 import type { SearchFetcher, SearchFetchInput } from "@/hooks/use-product-search";
 import type { SimilarFetcher, SimilarFetchInput } from "@/hooks/use-product-recommendations";
+import { checkoutFSMReducer, createInitialCheckoutFSM } from "@/lib/state-machines";
 
 const CATEGORY_CHIPS = [
   { label: "Trending Picks", icon: Flame, query: "shoes" },
@@ -49,7 +50,7 @@ export default function StorefrontPage() {
   const [selectedProduct, setSelectedProduct] = React.useState<Product | null>(null);
   const [priceHistory, setPriceHistory] = React.useState<PriceHistoryResponse | undefined>(undefined);
   const [paypalEvaluation, setPaypalEvaluation] = React.useState<Record<string, unknown> | null>(null);
-  const [checkoutStatus, setCheckoutStatus] = React.useState<string | null>(null);
+  const [checkoutFSM, dispatchCheckoutFSM] = React.useReducer(checkoutFSMReducer, createInitialCheckoutFSM());
   const [activeCategoryQuery, setActiveCategoryQuery] = React.useState("shoes");
 
   // 1. Search fetcher connecting to server-side Channel3 API route
@@ -123,7 +124,7 @@ export default function StorefrontPage() {
     setSelectedProduct(null);
     setPriceHistory(undefined);
     setPaypalEvaluation(null);
-    setCheckoutStatus(null);
+    dispatchCheckoutFSM({ type: "RESET" });
   }, []);
 
   // Fetch price history and run PayPal Guardian simulation when a product is opened
@@ -170,16 +171,24 @@ export default function StorefrontPage() {
   const leadOffer = activeProduct?.offers?.[0];
 
   const handlePayPalCheckout = async (usePayIn4: boolean) => {
+    const price = leadOffer?.price.price || 100;
+    const itemName = activeProduct?.title || "Product Purchase";
+
+    dispatchCheckoutFSM({
+      type: "START_CHECKOUT",
+      itemName,
+      amount: price,
+      usePayIn4,
+    });
+
     try {
-      setCheckoutStatus("Contacting PayPal Orders v2 API...");
-      const price = leadOffer?.price.price || 100;
       const res = await fetch("/api/paypal/orders", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           amount: price,
           currency: leadOffer?.price.currency || "USD",
-          itemName: activeProduct?.title || "Product Purchase",
+          itemName,
           payIn4: usePayIn4,
         }),
       });
@@ -189,11 +198,14 @@ export default function StorefrontPage() {
       }
 
       const data = await res.json();
-      setCheckoutStatus(
-        usePayIn4
-          ? `Order #${data.orderId} Authorized! PayPal Pay in 4 activated (4 installments of $${data.installmentAmount?.toFixed(2) || (price / 4).toFixed(2)}).`
-          : `Order #${data.orderId} Authorized! Paid in full: $${price.toFixed(2)} USD.`
-      );
+      dispatchCheckoutFSM({
+        type: "CHECKOUT_SUCCESS",
+        orderId: data.orderId,
+        amount: price,
+        usePayIn4,
+        installmentAmount: data.installmentAmount,
+        approveUrl: data.approveUrl,
+      });
 
       if (data.approveUrl) {
         setTimeout(() => {
@@ -202,7 +214,10 @@ export default function StorefrontPage() {
       }
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : "Checkout initialization failed";
-      setCheckoutStatus(`Error: ${message}`);
+      dispatchCheckoutFSM({
+        type: "CHECKOUT_FAILURE",
+        error: message,
+      });
     }
   };
 
@@ -321,25 +336,31 @@ export default function StorefrontPage() {
                     </p>
                   </div>
 
-                  {/* Actions */}
+                  {/* Actions & Guarded State Transitions */}
                   <div className="w-full max-w-md min-h-[45px] flex items-center gap-3 shrink-0 flex-wrap">
                     {Boolean((paypalEvaluation.pay_in_4 as { available?: boolean })?.available) && (
                       <Button
                         size="default"
+                        disabled={checkoutFSM.status === "INITIALIZING_ORDER" || checkoutFSM.status === "APPROVAL_REDIRECTING"}
                         onClick={() => handlePayPalCheckout(true)}
-                        className="bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold shadow-sm"
+                        className="bg-[#0070BA] hover:bg-[#005ea6] text-white font-bold shadow-sm disabled:opacity-60"
                       >
                         <CreditCard className="w-4 h-4 mr-1.5" />
-                        PayPal Pay in 4 (${Number((paypalEvaluation.pay_in_4 as { first_payment_today?: number })?.first_payment_today ?? 0).toFixed(2)} today)
+                        {checkoutFSM.status === "INITIALIZING_ORDER" && checkoutFSM.usePayIn4
+                          ? "Reserving Order..."
+                          : `PayPal Pay in 4 ($${Number((paypalEvaluation.pay_in_4 as { first_payment_today?: number })?.first_payment_today ?? 0).toFixed(2)} today)`}
                       </Button>
                     )}
                     <Button
                       size="default"
                       variant="outline"
+                      disabled={checkoutFSM.status === "INITIALIZING_ORDER" || checkoutFSM.status === "APPROVAL_REDIRECTING"}
                       onClick={() => handlePayPalCheckout(false)}
-                      className="border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-slate-200"
+                      className="border-[#172b4d] bg-[#0c182e] hover:bg-[#122344] text-slate-200 disabled:opacity-60"
                     >
-                      Pay in Full (${Number(paypalEvaluation.amount ?? 0).toFixed(2)})
+                      {checkoutFSM.status === "INITIALIZING_ORDER" && !checkoutFSM.usePayIn4
+                        ? "Contacting PayPal..."
+                        : `Pay in Full ($${Number(paypalEvaluation.amount ?? 0).toFixed(2)})`}
                     </Button>
                     <Link
                       href={`/dashboard?item=${encodeURIComponent(activeProduct.title)}&amount=${leadOffer?.price.price || (paypalEvaluation.amount as number) || 100}`}
@@ -351,10 +372,43 @@ export default function StorefrontPage() {
                   </div>
                 </div>
 
-                {checkoutStatus && (
+                {/* Machine-Driven Checkout Feedback Banner */}
+                {checkoutFSM.status === "INITIALIZING_ORDER" && (
                   <div className="mt-3 p-2.5 rounded-lg bg-[#002952] border border-[#0070BA] text-[#93c5fd] text-xs flex items-center gap-2">
-                    <CheckCircle2 className="w-4 h-4 shrink-0 text-[#38bdf8]" />
-                    <span>{checkoutStatus}</span>
+                    <span className="w-2 h-2 rounded-full bg-sky-400 animate-ping" />
+                    <span>Contacting PayPal Orders v2 API &amp; generating idempotency key...</span>
+                  </div>
+                )}
+
+                {checkoutFSM.status === "APPROVAL_REDIRECTING" && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>Order #{checkoutFSM.orderId} Authorized! Opening official PayPal sandbox approval tab...</span>
+                  </div>
+                )}
+
+                {checkoutFSM.status === "ORDER_AUTHORIZED" && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-emerald-950/40 border border-emerald-500/50 text-emerald-300 text-xs flex items-center gap-2">
+                    <CheckCircle2 className="w-4 h-4 text-emerald-400" />
+                    <span>
+                      Order #{checkoutFSM.orderId} Authorized!{" "}
+                      {checkoutFSM.usePayIn4
+                        ? `PayPal Pay in 4 activated (4 installments of $${(checkoutFSM.installmentAmount || checkoutFSM.amount / 4).toFixed(2)}).`
+                        : `Paid in full: $${checkoutFSM.amount.toFixed(2)} USD.`}
+                    </span>
+                  </div>
+                )}
+
+                {checkoutFSM.status === "ORDER_ERROR" && (
+                  <div className="mt-3 p-2.5 rounded-lg bg-rose-950/40 border border-rose-500/50 text-rose-300 text-xs flex items-center justify-between gap-2">
+                    <span>Error: {checkoutFSM.errorMessage}</span>
+                    <button
+                      type="button"
+                      onClick={() => dispatchCheckoutFSM({ type: "RESET" })}
+                      className="px-2 py-1 rounded bg-rose-900/60 hover:bg-rose-900 text-white text-[11px]"
+                    >
+                      Dismiss
+                    </button>
                   </div>
                 )}
               </div>
