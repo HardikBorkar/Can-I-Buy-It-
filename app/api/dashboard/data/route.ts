@@ -7,15 +7,61 @@ import {
   Transaction,
 } from "@/lib/financial-state";
 
-export async function GET() {
-  const today = new Date();
-  const startingBalance = FINANCIAL_STATE.CURRENT_BALANCE;
-  const safetyFloor = FINANCIAL_STATE.SAFETY_BUFFER_FLOOR;
+export async function GET(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const userId = searchParams.get("user_id") || "alex_cro";
 
+  let startingBalance = FINANCIAL_STATE.CURRENT_BALANCE;
+  const safetyFloor = FINANCIAL_STATE.SAFETY_BUFFER_FLOOR;
+  let accountEmail = FINANCIAL_STATE.ACCOUNT_EMAIL;
+  let accountName = "Michael Buyer (Healthy)";
   const commitments: Commitment[] = RECURRING_COMMITMENTS;
-  const transactions: Transaction[] = getSampleTransactions(today);
+
+  // 1. Fetch live user account from backend
+  const backendBase = process.env.BACKEND_URL || "http://127.0.0.1:8000";
+  try {
+    const userRes = await fetch(`${backendBase}/api/auth/user/${userId}`, { cache: "no-store" });
+    if (userRes.ok) {
+      const user = await userRes.json();
+      if (typeof user.balance === "number") {
+        startingBalance = user.balance;
+      }
+      if (user.email) accountEmail = user.email;
+      if (user.name) accountName = user.name;
+    }
+  } catch (err) {
+    // fallback to startingBalance
+  }
+
+  // 2. Fetch live transactions from SQLite write-through ledger
+  const sampleTxns: Transaction[] = getSampleTransactions(new Date());
+  let liveTxns: Transaction[] = [];
+  try {
+    const txnRes = await fetch(`${backendBase}/api/auth/transactions`, { cache: "no-store" });
+    if (txnRes.ok) {
+      const data = await txnRes.json();
+      if (Array.isArray(data.transactions) && data.transactions.length > 0) {
+        liveTxns = data.transactions.map((t: any, idx: number) => ({
+          id: t.paypal_id || `txn-${idx}`,
+          date: t.created_at ? t.created_at.split("T")[0] : new Date().toISOString().split("T")[0],
+          description: `${t.merchant || "Merchant"} - ${t.item || "Purchase"}`,
+          category: t.category || "General Retail",
+          amount: -Math.abs(t.amount || 0),
+          paymentMethod: "PAY_IN_FULL" as const,
+          status: "COMPLETED" as const,
+          payer: accountName,
+        }));
+      }
+    }
+  } catch (err) {
+    // fallback
+  }
+
+  // Deduplicate and combine live transactions with baseline samples
+  const transactions: Transaction[] = [...liveTxns, ...sampleTxns];
 
   // 90-Day Deterministic Projection using clean UTC calendar day increments
+  const today = new Date();
   const timeline = [];
   let runningBalance = startingBalance;
   const startYear = today.getUTCFullYear();
@@ -64,9 +110,11 @@ export async function GET() {
 
   return NextResponse.json({
     account: {
-      email: FINANCIAL_STATE.ACCOUNT_EMAIL,
+      user_id: userId,
+      name: accountName,
+      email: accountEmail,
       balance: startingBalance,
-      currency: FINANCIAL_STATE.CURRENCY,
+      currency: "USD",
       safetyBuffer: safetyFloor,
       discretionarySpend: Math.max(0, startingBalance - safetyFloor),
       mode: process.env.PAYPAL_MODE || "sandbox",

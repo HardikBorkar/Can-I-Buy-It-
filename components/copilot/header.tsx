@@ -8,7 +8,6 @@ import {
   TrendingUp,
   Receipt,
   Check,
-  ShieldCheck,
 } from "lucide-react";
 import { SubAgentId } from "./types";
 
@@ -62,30 +61,23 @@ export function CopilotHeader({
   return (
     <header className="h-14 border-b border-zinc-800/60 bg-[#0A0A0C]/90 backdrop-blur-md sticky top-0 z-20 select-none px-5 flex items-center justify-between gap-4">
       {/* Left: Dynamic Thread Title / Breadcrumb */}
-      <div className="flex items-center gap-2 min-w-0">
-        <span className="text-xs font-semibold text-zinc-400 shrink-0">
+      <div className="flex items-center gap-2.5 min-w-0">
+        <img
+          src="/guardian-shield-icon.png"
+          alt="Guardian Logo"
+          className="w-5 h-5 rounded object-cover border border-zinc-700/60 shadow-sm shrink-0"
+        />
+        <span className="text-xs font-semibold text-zinc-300 shrink-0">
           Guardian Copilot
         </span>
         <span className="text-zinc-600">/</span>
-        <span className="text-xs font-medium text-zinc-200 truncate max-w-[200px] sm:max-w-md">
+        <span className="text-xs font-medium text-zinc-400 truncate max-w-[200px] sm:max-w-md">
           {threadTitle || "Current Chat"}
         </span>
       </div>
 
-      {/* Right: Sandbox Status, Minimal Mode Selector, Clear Chat */}
+      {/* Right: Only AgentMode Selector */}
       <div className="flex items-center gap-2.5 text-xs">
-        {/* Security Posture Indicator */}
-        <div className="hidden md:flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-amber-500/10 border border-amber-500/25 text-amber-300 text-xs font-medium">
-          <ShieldCheck className="w-3.5 h-3.5 text-amber-400" />
-          <span>Security Guard: Dual HITL Active</span>
-        </div>
-
-        {/* Sandbox Status Indicator */}
-        <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-full bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 text-xs font-medium">
-          <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-          <span className="hidden sm:inline">Sandbox Ready</span>
-        </div>
-
         {/* Minimal Agent Mode Dropdown */}
         <div className="relative">
           <button

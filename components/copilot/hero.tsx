@@ -73,14 +73,25 @@ export function CopilotHero({
   };
 
   return (
-    <div className="flex-1 flex flex-col items-center justify-center px-4 py-12 max-w-3xl mx-auto w-full text-center animate-in fade-in zoom-in-95 duration-200">
-      {/* 1. Clean Minimal Greeting & Subtitle */}
-      <div className="space-y-2 mb-8 max-w-xl">
-        <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-zinc-100">
-          How can Guardian help you today?
+    <div className="flex-1 flex flex-col items-center justify-center px-4 py-10 max-w-3xl mx-auto w-full text-center animate-in fade-in zoom-in-95 duration-200">
+      {/* 1. Symmetrical Guardian Copilot Identity Logo */}
+      <div className="flex flex-col items-center justify-center mb-6 select-none">
+        <div className="relative group p-1.5 rounded-2xl bg-gradient-to-b from-teal-500/20 via-zinc-900/60 to-black/80 border border-zinc-800 shadow-[0_0_50px_-15px_rgba(20,184,166,0.3)] backdrop-blur-xl">
+          <img
+            src="/guardian-logo.jpg"
+            alt="Guardian Copilot - AI Transaction Safety & Sandbox Audit"
+            className="w-72 sm:w-88 md:w-[380px] h-auto object-contain rounded-xl block mx-auto transition-transform duration-300 group-hover:scale-[1.01]"
+          />
+        </div>
+      </div>
+
+      {/* 2. Subtitle & Context */}
+      <div className="space-y-1.5 mb-7 max-w-xl">
+        <h1 className="text-2xl sm:text-3xl font-bold tracking-tight text-zinc-100">
+          How can Guardian protect you today?
         </h1>
-        <p className="text-sm text-zinc-400 font-normal leading-relaxed">
-          Autonomous merchant safety, transaction audits, and sandbox payments.
+        <p className="text-xs sm:text-sm text-zinc-400 font-normal leading-relaxed">
+          Autonomous merchant safety, $500 cash-flow invariant defense, and PayPal Sandbox settlements.
         </p>
       </div>
 

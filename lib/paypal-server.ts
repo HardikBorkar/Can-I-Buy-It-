@@ -201,7 +201,8 @@ export async function createPayPalOrder(params: {
     }
 
     const data = await res.json();
-    const approveLink = data.links?.find((l: { rel: string; href: string }) => l.rel === "approve")?.href || "";
+    const approveLink =
+      data.links?.find((l: { rel: string; href: string }) => l.rel === "payer-action" || l.rel === "approve")?.href || "";
 
     return {
       orderId: data.id,
@@ -254,11 +255,9 @@ export async function capturePayPalOrder(orderId: string): Promise<{
     }, 4500);
 
     if (!res.ok) {
-      console.warn("Capture order returned " + res.status + ", resolving as completed in sandbox.");
-      return {
-        id: orderId,
-        status: "COMPLETED",
-      };
+      const errorText = await res.text();
+      console.error("PayPal Capture failed (HTTP " + res.status + "):", errorText);
+      throw new Error(`PayPal Capture API error (${res.status}): ${errorText}`);
     }
 
     const data = await res.json();
@@ -269,11 +268,9 @@ export async function capturePayPalOrder(orderId: string): Promise<{
       purchaseUnits: data.purchase_units,
     };
   } catch (err) {
-    console.warn("Capture order connection failed, resolving as completed in sandbox:", err);
-    return {
-      id: orderId,
-      status: "COMPLETED",
-    };
+    const msg = err instanceof Error ? err.message : String(err);
+    console.error("Capture order connection failed:", msg);
+    throw new Error(`Failed to capture PayPal order #${orderId}: ${msg}`);
   }
 }
 

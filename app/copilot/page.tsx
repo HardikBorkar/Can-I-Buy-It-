@@ -5,7 +5,7 @@ import { CopilotSidebar } from "@/components/copilot/sidebar";
 import { CopilotHeader } from "@/components/copilot/header";
 import { CopilotHero } from "@/components/copilot/hero";
 import { CopilotMessageStream } from "@/components/copilot/message-stream";
-import { SettingsModal } from "@/components/copilot/modals";
+import { SettingsModal, PayPalAccountModal, ConnectedAccount } from "@/components/copilot/modals";
 import {
   SubAgentId,
   ChatMessage,
@@ -24,8 +24,46 @@ export default function CopilotPage() {
   const [activeAgentId, setActiveAgentId] = useState<SubAgentId>("guardian-core");
   const [isGenerating, setIsGenerating] = useState(false);
 
-  // Settings Modal State
+  // Settings & Account Modal State
   const [showSettings, setShowSettings] = useState(false);
+  const [showAccountModal, setShowAccountModal] = useState(false);
+  const [activeAccount, setActiveAccount] = useState<ConnectedAccount>({
+    user_id: "alex_cro",
+    email: "guardian-buyer-healthy@personal.example.com",
+    name: "Michael Buyer (Healthy)",
+    account_type: "PERSONAL",
+    balance: 3500.0,
+    currency: "USD",
+  });
+
+  // Load active account from localStorage or backend
+  useEffect(() => {
+    const saved = localStorage.getItem("guardian_active_account");
+    if (saved) {
+      try {
+        setActiveAccount(JSON.parse(saved));
+      } catch {
+        // ignore parse error
+      }
+    }
+    // Fetch latest user account profile from backend
+    fetch("/api/py/auth/accounts")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data && data.accounts && data.accounts.length > 0) {
+          const currentId = saved ? JSON.parse(saved).user_id : "alex_cro";
+          const match = data.accounts.find((a: ConnectedAccount) => a.user_id === currentId) || data.accounts[0];
+          setActiveAccount(match);
+          localStorage.setItem("guardian_active_account", JSON.stringify(match));
+        }
+      })
+      .catch(() => {});
+  }, []);
+
+  const handleSelectAccount = useCallback((account: ConnectedAccount) => {
+    setActiveAccount(account);
+    localStorage.setItem("guardian_active_account", JSON.stringify(account));
+  }, []);
 
   // Current Thread Title
   const activeSession = sessions.find((s) => s.id === activeThreadId);
@@ -163,7 +201,7 @@ export default function CopilotPage() {
             message: userText,
             active_agent: activeAgentId,
             thread_id: currentId || "thread-session-1",
-            user_id: "alex_cro",
+            user_id: activeAccount.user_id,
           }),
         });
 
@@ -178,6 +216,7 @@ export default function CopilotPage() {
           const decoder = new TextDecoder();
           let buffer = "";
           let finalReply = "";
+          const agentTraces: string[] = [];
 
           const processBlock = (block: string) => {
             if (!block.trim()) return;
@@ -196,8 +235,28 @@ export default function CopilotPage() {
 
             try {
               const parsed = JSON.parse(dataStr);
-              if (currentEvent === "message") {
+              if (currentEvent === "agent_trace") {
+                if (parsed.agent && parsed.message) {
+                  agentTraces.push(`[${parsed.agent} (Turn ${parsed.turn ?? 0})]: ${parsed.message}`);
+                }
+              } else if (currentEvent === "message") {
                 if (parsed.reply) finalReply = parsed.reply;
+                if (parsed.multi_agent_trace && Array.isArray(parsed.multi_agent_trace)) {
+                  for (const t of parsed.multi_agent_trace) {
+                    const line = `[${t.agent} (Turn ${t.turn ?? 0})]: ${t.message}`;
+                    if (!agentTraces.includes(line)) {
+                      agentTraces.push(line);
+                    }
+                  }
+                }
+              } else if (currentEvent === "card") {
+                actionCard = parsed;
+              } else if (currentEvent === "expenditure_chart") {
+                actionCard = {
+                  type: "expenditure_chart",
+                  event: "expenditure_chart",
+                  chartData: parsed,
+                };
               } else if (currentEvent === "hitl_required") {
                 if (parsed.action_type === "bento_analytics") {
                   actionCard = { type: "bento_analytics" as const };
@@ -210,7 +269,7 @@ export default function CopilotPage() {
                       item: parsed.raw_payload?.item_name || parsed.description,
                       price: parsed.amount,
                       currency: parsed.currency || "USD",
-                      merchant: parsed.recipient || "Verified Merchant",
+                      merchant: parsed.recipient || parsed.merchant || "Seller",
                       status: "PENDING_AUTHORIZATION",
                     },
                   };
@@ -239,14 +298,35 @@ export default function CopilotPage() {
             processBlock(buffer);
           }
 
-          data = { reply: finalReply, actionCard };
+          data = {
+            reply: finalReply,
+            actionCard,
+            reasoning: agentTraces.length > 0 ? agentTraces.join("\n\n") : undefined,
+          };
         } else {
           data = await res.json();
+          if (data.multi_agent_trace && Array.isArray(data.multi_agent_trace)) {
+            data.reasoning = data.multi_agent_trace
+              .map((t: any) => `[${t.agent} (Turn ${t.turn ?? 0})]: ${t.message}`)
+              .join("\n\n");
+          }
         }
 
         // Convert data.actionCard into our ActionCardPayload
-        if (!actionCard && data.actionCard) {
-          if (data.actionCard.type === "balance") {
+        if (!actionCard && (data.action_card || data.actionCard)) {
+          const directCard = data.action_card || data.actionCard;
+          if (
+            directCard.type === "order_inspection_result" ||
+            directCard.type === "invoice_approval_required" ||
+            directCard.type === "checkout_approval_required" ||
+            directCard.type === "expenditure_chart" ||
+            directCard.event === "order_inspection_result" ||
+            directCard.event === "invoice_approval_required" ||
+            directCard.event === "checkout_approval_required" ||
+            directCard.event === "expenditure_chart"
+          ) {
+            actionCard = directCard;
+          } else if (directCard.type === "balance") {
             actionCard = {
               type: "balance_snapshot" as const,
               balanceData: {
@@ -289,7 +369,7 @@ export default function CopilotPage() {
                 item: pa.raw_payload?.item_name || pa.description,
                 price: pa.amount,
                 currency: pa.currency || "USD",
-                merchant: pa.recipient || "Verified Merchant",
+                merchant: pa.recipient || pa.merchant || "Seller",
                 status: "PENDING_AUTHORIZATION",
               },
             };
@@ -349,7 +429,7 @@ export default function CopilotPage() {
         setIsGenerating(false);
       }
     },
-    [activeAgentId, activeThreadId, isGenerating, messages]
+    [activeAccount, activeAgentId, activeThreadId, isGenerating, messages]
   );
 
   return (
@@ -365,6 +445,8 @@ export default function CopilotPage() {
         onRenameSession={handleRenameSession}
         onDeleteSession={handleDeleteSession}
         onOpenSettings={() => setShowSettings(true)}
+        activeAccount={activeAccount}
+        onOpenAccountModal={() => setShowAccountModal(true)}
       />
 
       {/* 2. Main Minimal Stage */}
@@ -401,6 +483,14 @@ export default function CopilotPage() {
       <SettingsModal
         isOpen={showSettings}
         onClose={() => setShowSettings(false)}
+      />
+
+      {/* PayPal Account & Persona Modal */}
+      <PayPalAccountModal
+        isOpen={showAccountModal}
+        onClose={() => setShowAccountModal(false)}
+        activeAccountId={activeAccount.user_id}
+        onSelectAccount={handleSelectAccount}
       />
     </div>
   );

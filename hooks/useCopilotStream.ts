@@ -23,7 +23,8 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
     async (
       userText: string,
       activeAgent: SubAgentId | string = "guardian-core",
-      threadId: string = "thread-session-1"
+      threadId: string = "thread-session-1",
+      userId: string = "alex_cro"
     ) => {
       if (!userText.trim() || isGenerating) return;
 
@@ -54,7 +55,7 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
             message: userText,
             active_agent: activeAgent,
             thread_id: threadId,
-            user_id: "alex_cro",
+            user_id: userId,
           }),
           signal: abortControllerRef.current.signal,
         });
@@ -69,7 +70,9 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
         if (!contentType.includes("text/event-stream") && response.body) {
           const data = await response.json();
           let actionCard: ActionCardPayload | undefined;
-          if (data.pending_action) {
+          if (data.action_card) {
+            actionCard = data.action_card;
+          } else if (data.pending_action) {
             const pa = data.pending_action;
             actionCard = {
               type: pa.action_type === "send_invoice" ? "invoice_preview" : "order_card",
@@ -79,11 +82,19 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
                 item: pa.raw_payload?.item_name || pa.description,
                 price: pa.amount,
                 currency: pa.currency || "USD",
-                merchant: pa.recipient || "Verified Merchant",
+                merchant: pa.recipient || pa.merchant || "Seller",
                 status: "PENDING_AUTHORIZATION",
               },
             };
           }
+
+          const traces = data.multi_agent_trace || [];
+          const reasoning =
+            Array.isArray(traces) && traces.length > 0
+              ? traces
+                  .map((t: any) => `[${t.agent || "Agent"}] ${t.action || ""}: ${t.message || ""}`)
+                  .join("\n")
+              : undefined;
 
           const assistantMsg: ChatMessage = {
             id: `asst-${Date.now()}`,
@@ -91,6 +102,7 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
             agentId: activeAgent as SubAgentId,
             text: data.reply || "Multi-agent analysis complete.",
             actionCard,
+            reasoning,
             timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
           };
           setMessages((prev) => [...prev, assistantMsg]);
@@ -108,6 +120,7 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
         let finalReply = "";
         let actionCard: ActionCardPayload | undefined;
         let pendingHitl: any = null;
+        let multiAgentTraces: any[] = [];
 
         const processBlock = (block: string) => {
           if (!block.trim()) return;
@@ -134,6 +147,8 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
                 status: parsed.status,
                 message: parsed.message,
               });
+            } else if (currentEvent === "agent_trace") {
+              if (parsed) multiAgentTraces.push(parsed);
             } else if (currentEvent === "hitl_required") {
               pendingHitl = parsed;
               actionCard = {
@@ -144,15 +159,21 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
                   item: parsed.raw_payload?.item_name || parsed.description,
                   price: parsed.amount,
                   currency: parsed.currency || "USD",
-                  merchant: parsed.recipient || "Verified Merchant",
+                  merchant: parsed.recipient || parsed.merchant || "Seller",
                   status: "PENDING_AUTHORIZATION",
                 },
               };
               if (options.onActionRequired) {
                 options.onActionRequired(parsed);
               }
+            } else if (currentEvent === "expenditure_chart") {
+              actionCard = {
+                type: "expenditure_chart",
+                event: "expenditure_chart",
+                chartData: parsed.chartData || parsed.chart_data || parsed,
+              };
             } else if (currentEvent === "card") {
-              // Scraped card or preview
+              // Scraped card, expenditure chart, or generic action card
               if (parsed.type === "scraped_merchant" && parsed.data) {
                 actionCard = {
                   type: "order_card",
@@ -166,10 +187,21 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
                     status: "PENDING_AUTHORIZATION",
                   },
                 };
+              } else if (parsed.type === "expenditure_chart" || parsed.event === "expenditure_chart") {
+                actionCard = {
+                  type: "expenditure_chart",
+                  event: "expenditure_chart",
+                  chartData: parsed.chartData || parsed.chart_data || parsed,
+                };
+              } else if (parsed.type) {
+                actionCard = parsed;
               }
             } else if (currentEvent === "message") {
               if (parsed.reply) {
                 finalReply = parsed.reply;
+              }
+              if (parsed.multi_agent_trace && Array.isArray(parsed.multi_agent_trace)) {
+                multiAgentTraces = parsed.multi_agent_trace;
               }
             } else if (currentEvent === "done") {
               setCurrentStatus(null);
@@ -196,12 +228,20 @@ export function useCopilotStream(options: UseCopilotStreamOptions = {}) {
           processBlock(buffer);
         }
 
+        const reasoning =
+          multiAgentTraces.length > 0
+            ? multiAgentTraces
+                .map((t) => `[${t.agent || "Agent"}] ${t.action || ""}: ${t.message || ""}`)
+                .join("\n")
+            : undefined;
+
         const assistantMsg: ChatMessage = {
           id: `asst-${Date.now()}`,
           sender: "assistant",
           agentId: activeAgent as SubAgentId,
           text: finalReply || "Multi-agent consensus validation complete.",
           actionCard,
+          reasoning,
           timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
         };
 

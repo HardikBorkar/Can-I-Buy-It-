@@ -13,6 +13,7 @@ import {
   PanelLeftOpen,
 } from "lucide-react";
 import { HistorySession } from "./types";
+import { ConnectedAccount } from "./modals";
 
 interface SidebarProps {
   isCollapsed: boolean;
@@ -24,6 +25,8 @@ interface SidebarProps {
   onRenameSession?: (id: string, newTitle: string) => void;
   onDeleteSession?: (id: string) => void;
   onOpenSettings?: () => void;
+  activeAccount?: ConnectedAccount | null;
+  onOpenAccountModal?: () => void;
 }
 
 export function CopilotSidebar({
@@ -36,6 +39,8 @@ export function CopilotSidebar({
   onRenameSession,
   onDeleteSession,
   onOpenSettings,
+  activeAccount,
+  onOpenAccountModal,
 }: SidebarProps) {
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editTitle, setEditTitle] = useState("");
@@ -84,7 +89,12 @@ export function CopilotSidebar({
             isCollapsed ? "justify-center" : "px-1"
           }`}
         >
-          <div className="flex items-center min-w-0">
+          <div className="flex items-center gap-2 min-w-0">
+            <img
+              src="/guardian-shield-icon.png"
+              alt="Guardian"
+              className="w-5 h-5 rounded object-cover border border-zinc-700/60 shadow-sm shrink-0"
+            />
             {!isCollapsed && (
               <span className="font-semibold text-xs text-zinc-100 tracking-tight block truncate">
                 Guardian Copilot
@@ -311,19 +321,29 @@ export function CopilotSidebar({
       </div>
 
       {/* 3. Bottom Footer: Minimal User Profile & Collapse Toggle */}
-      <div className="p-2 flex items-center justify-between gap-1">
+      <div className="p-2 flex items-center justify-between gap-1 border-t border-zinc-900/60">
         {!isCollapsed ? (
           <>
-            <div className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs min-w-0">
-              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-violet-600 to-indigo-500 flex items-center justify-center font-bold text-xs text-white shrink-0">
-                A
+            <button
+              type="button"
+              onClick={onOpenAccountModal}
+              className="flex items-center gap-2 px-2 py-1.5 rounded-lg text-xs min-w-0 hover:bg-zinc-800/70 transition group text-left cursor-pointer flex-1"
+              title="Switch PayPal Persona or Connect Account"
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-xs text-white shrink-0">
+                {activeAccount?.name ? activeAccount.name.charAt(0).toUpperCase() : "A"}
               </div>
-              <span className="font-medium text-zinc-200 text-xs truncate">
-                Alex Parik
-              </span>
-            </div>
+              <div className="min-w-0 flex-1">
+                <span className="font-medium text-zinc-200 text-xs truncate block group-hover:text-blue-400 transition">
+                  {activeAccount?.name || "Alex Parik"}
+                </span>
+                <span className="text-[10px] text-zinc-400 font-mono block truncate">
+                  ${(activeAccount?.balance ?? 3500).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD
+                </span>
+              </div>
+            </button>
 
-            <div className="flex items-center gap-0.5">
+            <div className="flex items-center gap-0.5 shrink-0">
               {onOpenSettings && (
                 <button
                   type="button"
@@ -346,14 +366,27 @@ export function CopilotSidebar({
             </div>
           </>
         ) : (
-          <button
-            type="button"
-            onClick={onToggleCollapse}
-            className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
-            title="Expand sidebar (Ctrl+B)"
-          >
-            <PanelLeftOpen className="w-4 h-4" />
-          </button>
+          <div className="w-full flex flex-col items-center gap-1.5">
+            <button
+              type="button"
+              onClick={onOpenAccountModal}
+              className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-blue-400 transition"
+              title={`Active Account: ${activeAccount?.name || "Alex Parik"} ($${(activeAccount?.balance ?? 3500).toFixed(2)})`}
+            >
+              <div className="w-6 h-6 rounded-full bg-gradient-to-tr from-blue-600 to-indigo-500 flex items-center justify-center font-bold text-xs text-white shrink-0">
+                {activeAccount?.name ? activeAccount.name.charAt(0).toUpperCase() : "A"}
+              </div>
+            </button>
+
+            <button
+              type="button"
+              onClick={onToggleCollapse}
+              className="w-full flex items-center justify-center p-2 rounded-lg hover:bg-zinc-800 text-zinc-400 hover:text-zinc-200 transition"
+              title="Expand sidebar (Ctrl+B)"
+            >
+              <PanelLeftOpen className="w-4 h-4" />
+            </button>
+          </div>
         )}
       </div>
     </aside>

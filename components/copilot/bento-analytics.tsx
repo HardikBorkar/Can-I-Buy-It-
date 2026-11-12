@@ -179,7 +179,7 @@ export function BentoAnalyticsCard({
           const liveRecords: TransactionRecord[] = data.transactions.map((t: any) => ({
             id: t.id || `tx-${Math.random().toString(36).slice(2, 6)}`,
             date: t.date || new Date().toISOString().slice(0, 10),
-            merchant: t.description || t.merchant || "Verified Merchant",
+            merchant: t.description || t.merchant || "Sandbox Counterparty",
             category: t.category || "General Spend",
             status: (t.status === "COMPLETED"
               ? "Settled"

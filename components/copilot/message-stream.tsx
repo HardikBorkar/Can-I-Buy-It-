@@ -184,8 +184,12 @@ export function CopilotMessageStream({
               }`}
             >
               {!isUser && (
-                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm">
-                  <Shield className="w-4 h-4 text-violet-400" />
+                <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 mt-0.5 shadow-sm overflow-hidden">
+                  <img
+                    src="/guardian-shield-icon.png"
+                    alt="Guardian"
+                    className="w-full h-full object-cover"
+                  />
                 </div>
               )}
 
@@ -254,8 +258,12 @@ export function CopilotMessageStream({
         {/* Loading Indicator */}
         {isGenerating && (
           <div className="flex items-start gap-3.5 animate-in fade-in duration-150">
-            <div className="w-8 h-8 rounded-xl bg-zinc-800 border border-zinc-700/60 flex items-center justify-center shrink-0 mt-0.5">
-              <Shield className="w-4 h-4 text-violet-400 animate-pulse" />
+            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-violet-600/20 to-teal-500/20 border border-violet-500/30 flex items-center justify-center shrink-0 mt-0.5 overflow-hidden">
+              <img
+                src="/guardian-shield-icon.png"
+                alt="Guardian"
+                className="w-full h-full object-cover animate-pulse"
+              />
             </div>
 
             <div className="p-3.5 rounded-2xl bg-zinc-900/80 border border-zinc-800 flex items-center gap-2.5 text-xs text-zinc-400 shadow-sm">
